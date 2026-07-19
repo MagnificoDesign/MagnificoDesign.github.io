@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-title" content="Dodger Stitch">
+<meta name="theme-color" content="#005A9C">
+<link rel="apple-touch-icon" href="dodger-stitch-icon.png">
+<link rel="icon" type="image/png" href="dodger-stitch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yellowtail&display=swap" rel="stylesheet">
+<title>Dodger Stitch</title>
+<style>
+  :root{
+    --blue:#005A9C; --blue-deep:#003F73; --blue-tint:#E7F0F8;
+    --red:#EF3E42; --bg:#F4F7FA; --card:#FFFFFF; --line:#D7E1EC;
+    --ink:#0F2A44; --dim:#5B7186; --faint:#8CA0B3;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;}
+  body{padding:0 16px calc(28px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+
+  header{padding:14px 0 4px;}
+  .brandBar{background:var(--blue); border-radius:16px; padding:14px 16px;
+    display:flex; align-items:center; gap:13px;
+    box-shadow:0 3px 10px rgba(0,90,156,.25);}
+  .badge{flex:none; display:block;}
+  .wordmark{font-family:'Yellowtail',cursive; font-size:31px; color:#fff; line-height:1.05;
+    text-shadow:0 2px 0 rgba(0,0,0,.15);}
+  .tag{color:#CFE3F5; font-size:12.5px; margin-top:3px;}
+  .stitch{height:8px; margin:12px 2px 0; background-repeat:repeat-x; background-position:left center;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='8'%3E%3Cpath d='M2 6 L7 2 M11 2 L16 6' stroke='%23EF3E42' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px; margin-top:14px; box-shadow:0 1px 3px rgba(15,42,68,.06);}
+  .eyebrow{font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--blue); margin:0 0 10px;}
+
+  label{display:block; font-size:13px; color:var(--dim); margin:12px 0 5px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=date]{width:100%; background:#fff; color:var(--ink);
+    border:1px solid var(--line); border-radius:10px; padding:12px 12px; font-size:16px;
+    -webkit-appearance:none; appearance:none; min-height:46px;}
+  input:focus{outline:2px solid var(--blue); outline-offset:1px; border-color:transparent;}
+
+  .slateWrap{margin-top:14px;}
+  #titlePreview{width:100%; height:auto; border-radius:10px; display:block; border:1px solid var(--line);}
+  .hint{font-size:12px; color:var(--faint); margin-top:6px; text-align:center;}
+
+  .btnRow{display:flex; gap:10px;}
+  button, .btnLink{font-family:inherit; font-size:15px; font-weight:600; border-radius:12px;
+    border:1px solid var(--line); background:#fff; color:var(--ink);
+    padding:13px 12px; min-height:48px; cursor:pointer; text-align:center; text-decoration:none;
+    display:inline-flex; align-items:center; justify-content:center;}
+  button:active{transform:scale(.985);}
+  .grow{flex:1;}
+  .primary{background:var(--blue); color:#fff; border-color:var(--blue); font-weight:700;}
+  .big{width:100%; font-size:17px; min-height:54px; margin-top:16px;}
+  .ghost{background:#fff; border-color:var(--blue); color:var(--blue);}
+
+  .qhint{color:var(--dim); font-size:12.5px; line-height:1.5; margin:10px 2px 0;}
+  .qhint b{color:var(--ink);}
+  .qual{flex-direction:column; gap:2px; line-height:1.2;}
+  .qual span{font-size:11.5px; color:var(--dim); font-weight:400;}
+  .qual.sel{border-color:var(--blue); background:var(--blue-tint); color:var(--blue-deep);}
+  .qual.sel span{color:var(--blue);}
+
+  #clipList{list-style:none; margin:12px 0 0; padding:0;}
+  .clipRow{display:flex; align-items:center; gap:10px; background:#F7FAFD;
+    border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-top:8px;}
+  .clipIdx{width:26px; height:26px; border-radius:8px; background:var(--blue-tint); color:var(--blue);
+    font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none;}
+  .clipMeta{flex:1; min-width:0;}
+  .clipName{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .clipSub{font-size:12px; color:var(--dim); margin-top:1px;}
+  .clipBtns{display:flex; gap:6px; flex:none;}
+  .clipBtns button{width:34px; height:34px; min-height:34px; padding:0; font-size:14px; border-radius:8px;}
+  .clipBtns button:disabled{opacity:.3;}
+  #clipEmpty{color:var(--faint); font-size:13px; margin-top:12px; line-height:1.45;}
+
+  .fine{color:var(--faint); font-size:12.5px; text-align:center; line-height:1.5; margin:10px 4px 0;}
+
+  .overlay{position:fixed; inset:0; background:var(--bg); z-index:50; overflow-y:auto;
+    padding:calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));}
+  .hidden{display:none;}
+  .offscreen{position:absolute; left:-9999px; top:0; width:1px; height:1px; opacity:0;}
+  #importStatus{display:none; margin-top:10px; padding:10px 12px; border-radius:10px;
+    background:var(--blue-tint); color:var(--blue-deep); font-size:13px; line-height:1.5;}
+  #importStatus.on{display:block;}
+  .linkBtn{background:none; border:none; color:var(--blue); text-decoration:underline;
+    font-size:13px; font-weight:500; padding:8px 0 0; min-height:0; display:block;}
+
+  #stage{width:100%; height:auto; max-height:58vh; object-fit:contain; display:block;
+    border-radius:10px; border:1px solid var(--line); background:#000; margin:0 auto;}
+  .progressWrap{height:10px; background:#E1E9F2; border-radius:5px; margin-top:18px; overflow:hidden;}
+  #progressFill{height:100%; width:0%; border-radius:5px;
+    background:repeating-linear-gradient(-55deg, var(--red) 0 10px, #C9302F 10px 20px);
+    transition:width .25s linear;}
+  #statusText{margin-top:14px; font-size:16px; font-weight:700; color:var(--blue-deep); text-align:center;}
+  #timeText{margin-top:4px; font-size:14px; color:var(--dim); text-align:center;}
+  .warn{margin-top:16px; text-align:center; color:var(--red); font-weight:600; font-size:13.5px; line-height:1.5;}
+
+  #doneView h2{margin:6px 0 14px; font-size:22px; color:var(--blue-deep);}
+  #result{width:100%; max-height:50vh; border-radius:10px; background:#000; display:block;}
+  #resultMeta{color:var(--dim); font-size:13px; margin-top:8px; text-align:center; word-break:break-word;}
+
+  #toast{position:fixed; left:16px; right:16px; bottom:calc(24px + env(safe-area-inset-bottom));
+    background:var(--ink); color:#fff; border-radius:12px;
+    padding:13px 14px; font-size:14px; text-align:center; z-index:100; opacity:0;
+    pointer-events:none; transform:translateY(8px); transition:opacity .2s, transform .2s;}
+  #toast.show{opacity:1; transform:translateY(0);}
+  /* in-app camera */
+  #camView{background:#000; padding:0;}
+  #camPreview{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000;}
+  #camPreview.mirror{transform:scaleX(-1);}
+  .camTop{position:absolute; top:calc(14px + env(safe-area-inset-top)); left:0; right:0;
+    display:flex; justify-content:center; pointer-events:none;}
+  #camTimer{background:rgba(0,0,0,.55); color:#fff; font-size:15px; font-weight:600;
+    padding:7px 14px; border-radius:999px; display:none; align-items:center; gap:8px;}
+  #camTimer.on{display:inline-flex;}
+  #camTimer i{width:10px; height:10px; border-radius:50%; background:var(--red); display:block;
+    animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+  .camControls{position:absolute; left:0; right:0; bottom:calc(26px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; justify-content:space-between; padding:0 34px;}
+  .camBtn{background:rgba(20,20,20,.6); color:#fff; border:1px solid rgba(255,255,255,.25);
+    border-radius:999px; min-height:44px; padding:10px 16px; font-size:15px;}
+  .camBtn:disabled{opacity:.4;}
+  #camShutter{width:76px; height:76px; min-height:76px; border-radius:50%; padding:0;
+    background:rgba(255,255,255,.18); border:4px solid #fff; position:relative;}
+  #camShutter::after{content:''; position:absolute; inset:7px; background:var(--red);
+    border-radius:50%; transition:border-radius .15s, inset .15s;}
+  #camShutter.rec::after{inset:20px; border-radius:6px;}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brandBar">
+    <svg class="badge" viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+      <circle cx="32" cy="32" r="30" fill="#FFFFFF" stroke="#D7E1EC" stroke-width="1.5"/>
+      <path d="M17 5 C7 20 7 44 17 59" stroke="#EF3E42" stroke-width="2.6" fill="none" stroke-dasharray="4 3" stroke-linecap="round"/>
+      <path d="M47 5 C57 20 57 44 47 59" stroke="#EF3E42" stroke-width="2.6" fill="none" stroke-dasharray="4 3" stroke-linecap="round"/>
+      <text x="32" y="41" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-style="italic" font-weight="bold" font-size="25" fill="#005A9C">LA</text>
+    </svg>
+    <div>
+      <div class="wordmark">Dodger Stitch</div>
+      <div class="tag">Shoot · Slate · Stitch · Share</div>
+    </div>
+  </div>
+  <div class="stitch"></div>
+</header>
+
+<main id="setup">
+  <section class="card">
+    <p class="eyebrow">Step 1 · Info</p>
+    <div class="btnRow">
+      <div class="grow">
+        <label for="lastName">Last name</label>
+        <input type="text" id="lastName" placeholder="Guyette" autocomplete="off">
+      </div>
+      <div class="grow">
+        <label for="firstName">First name</label>
+        <input type="text" id="firstName" placeholder="James" autocomplete="off">
+      </div>
+    </div>
+    <label for="posName">Position</label>
+    <input type="text" id="posName" placeholder="RHP" autocomplete="off">
+    <label for="schoolName">School</label>
+    <input type="text" id="schoolName" placeholder="Kansas State" autocomplete="off">
+    <label for="gameDate">Date</label>
+    <input type="date" id="gameDate">
+    <div class="slateWrap">
+      <canvas id="titlePreview" width="1280" height="720"></canvas>
+      <div class="hint">Live preview — this becomes the first 3 seconds of your video</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Step 2 · Clips</p>
+    <div class="btnRow">
+      <button id="addBtn" class="grow">＋ Add from Photos</button>
+      <button id="recordBtn" class="grow">🎥 Record in app</button>
+    </div>
+    <p class="qhint">Record in app has a start/stop button, a timer, and adds each clip straight to your list. For absolute maximum quality, film with your <b>Camera app</b> (4K) and add the clips from Photos.</p>
+    <div id="importStatus"></div>
+    <button id="altBtn" class="linkBtn">Import trouble? Try the alternate picker</button>
+    <input type="file" id="recordInput" accept="video/*" capture="environment" class="offscreen">
+    <input type="file" id="addInput" accept="video/mp4,video/quicktime,video/x-m4v,video/*" multiple class="offscreen">
+    <input type="file" id="altInput" class="offscreen">
+    <ul id="clipList"></ul>
+    <div id="clipEmpty">No clips yet. Film in your Camera app, then add the clips from Photos — they'll be stitched together in the order shown here.</div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Step 3 · Output quality</p>
+    <div class="btnRow">
+      <button id="qStd" class="grow qual sel">Standard<span>1080p · extra smooth</span></button>
+      <button id="qMax" class="grow qual">Maximum<span>Up to 4K · sharpest</span></button>
+    </div>
+  </section>
+
+  <button id="createBtn" class="primary big">Create video</button>
+  <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
+</main>
+
+<div id="renderView" class="overlay hidden">
+  <canvas id="stage"></canvas>
+  <div class="progressWrap"><div id="progressFill"></div></div>
+  <div id="statusText">Preparing…</div>
+  <div id="timeText"></div>
+  <div class="warn">⚠️ Keep this screen open and your phone awake<br>until the video finishes.</div>
+</div>
+
+<div id="doneView" class="overlay hidden">
+  <h2>Your video is ready</h2>
+  <video id="result" controls playsinline></video>
+  <div id="resultMeta"></div>
+  <button id="shareBtn" class="primary big">Save / Share… <span style="font-weight:400">&nbsp;(Photos, Box)</span></button>
+  <a id="downloadLink" class="btnLink big ghost" download>Download file</a>
+  <button id="againBtn" class="ghost big">Start next video</button>
+  <p class="fine">"Save / Share" opens the share sheet — tap <b>Save Video</b> to put it in Photos, or pick <b>Box</b> to upload it.</p>
+</div>
+
+<div id="camView" class="overlay hidden">
+  <video id="camPreview" autoplay playsinline muted></video>
+  <div class="camTop"><span id="camTimer"><i></i><span id="camClock">0:00</span></span></div>
+  <div class="camControls">
+    <button id="camFlip" class="camBtn">Flip</button>
+    <button id="camShutter" aria-label="Start or stop recording"></button>
+    <button id="camDone" class="camBtn">Done</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+window.onerror = function(msg, src, line){
+  try{
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:999;background:#7a1f1f;color:#fff;padding:10px 12px;border-radius:10px;font:13px -apple-system,Arial,sans-serif;';
+    d.textContent = 'App error (show this to Claude): ' + msg + ' (line ' + line + ')';
+    document.body.appendChild(d);
+  }catch(e){}
+};
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var lastI = $('lastName'), firstI = $('firstName'), posI = $('posName'), schoolI = $('schoolName'), dateI = $('gameDate');
+var clips = [];
+var audioCtx = null, dest = null;
+var busy = false, totalDur = 0;
+var stageCtx = null, W = 0, H = 0;
+var resultBlob = null, resultName = 'video.mp4', resultURL = null;
+var wakeLock = null;
+var toastTimer = null;
+
+/* Hidden holder for the working <video> elements */
+var holder = document.createElement('div');
+holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:4px;height:4px;overflow:hidden;';
+document.body.appendChild(holder);
+
+/* ---------- helpers ---------- */
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3400);
+}
+function fmtTime(s){
+  s = Math.max(0, Math.round(s));
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+function fmtDateStr(v){
+  if(!v) return '';
+  var p = v.split('-');
+  return p[1] + '/' + p[2] + '/' + p[0];
+}
+function FONT(weight, px){
+  return weight + ' ' + px + "px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+}
+function lsGet(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k, v){ try{ window.localStorage.setItem(k, v); }catch(e){} }
+
+/* default date = today (local) */
+(function(){
+  var n = new Date();
+  dateI.value = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+})();
+
+/* ---------- the slate (title card) ---------- */
+function playerLine(){
+  var ln = lastI.value.trim(), fn = firstI.value.trim(), ps = posI.value.trim();
+  var nm = (ln && fn) ? (ln + ', ' + fn) : (ln || fn);
+  return (nm + (ps ? ' ' + ps : '')).trim();
+}
+
+function drawSlate(ctx, w, h, alpha){
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#FFFFFF';
+
+  var line1 = playerLine() || 'Lastname, Firstname POS';
+  var line2 = (schoolI.value.trim() + ' ' + fmtDateStr(dateI.value)).replace(/\s+/g, ' ').trim() || 'School MM/DD/YYYY';
+
+  var fs = Math.floor(Math.min(h * 0.115, w * 0.062));
+  ctx.font = FONT(500, fs);
+  while(fs > 10 && (ctx.measureText(line1).width > w * 0.9 || ctx.measureText(line2).width > w * 0.9)){
+    fs -= 2;
+    ctx.font = FONT(500, fs);
+  }
+  var y1 = h * 0.565;
+  ctx.fillText(line1, w / 2, y1);
+  ctx.fillText(line2, w / 2, y1 + fs * 1.45);
+  ctx.restore();
+}
+
+function updatePreview(){
+  var c = $('titlePreview');
+  drawSlate(c.getContext('2d'), c.width, c.height, 1);
+}
+function persistFields(){
+  lsSet('ds_last', lastI.value);
+  lsSet('ds_first', firstI.value);
+  lsSet('ds_pos', posI.value);
+  lsSet('ds_school', schoolI.value);
+}
+(function(){
+  var saved = { ds_last: lastI, ds_first: firstI, ds_pos: posI, ds_school: schoolI };
+  Object.keys(saved).forEach(function(k){
+    var v = lsGet(k);
+    if(v) saved[k].value = v;
+  });
+})();
+[lastI, firstI, posI, schoolI, dateI].forEach(function(el){
+  el.addEventListener('input', function(){ persistFields(); updatePreview(); });
+  el.addEventListener('change', function(){ persistFields(); updatePreview(); });
+});
+updatePreview();
+
+/* ---------- clips ---------- */
+function addFiles(fileList){
+  var added = 0;
+  for(var i = 0; i < fileList.length; i++){
+    var f = fileList[i];
+    if(!f) continue;
+    if(f.type && f.type.indexOf('video') !== 0 && !/\.(mov|mp4|m4v)$/i.test(f.name || '')) continue;
+    var url = URL.createObjectURL(f);
+    var v = document.createElement('video');
+    v.setAttribute('playsinline', '');
+    v.playsInline = true;
+    v.preload = 'metadata';
+    v.muted = true;
+    v.src = url;
+    holder.appendChild(v);
+    var clip = { file: f, url: url, v: v, dur: 0, w: 0, h: 0, srcNode: null };
+    (function(cl){
+      cl.v.addEventListener('loadedmetadata', function(){
+        cl.w = cl.v.videoWidth;
+        cl.h = cl.v.videoHeight;
+        if(isFinite(cl.v.duration) && cl.v.duration > 0){
+          cl.dur = cl.v.duration;
+        } else {
+          var onDur = function(){
+            if(isFinite(cl.v.duration) && cl.v.duration > 0){
+              cl.dur = cl.v.duration;
+              cl.v.removeEventListener('durationchange', onDur);
+              try{ cl.v.currentTime = 0; }catch(e){}
+              renderList();
+            }
+          };
+          cl.v.addEventListener('durationchange', onDur);
+          try{ cl.v.currentTime = 10000000; }catch(e){}
+        }
+        renderList();
+      });
+      cl.v.addEventListener('error', function(){
+        toast('One clip couldn\u2019t be read and was skipped.');
+        var idx = clips.indexOf(cl);
+        if(idx >= 0) removeClip(idx);
+      });
+    })(clip);
+    clips.push(clip);
+    added++;
+  }
+  if(!added) toast('No video found in that selection.');
+  renderList();
+}
+
+function renderList(){
+  var list = $('clipList');
+  list.innerHTML = '';
+  $('clipEmpty').style.display = clips.length ? 'none' : 'block';
+  clips.forEach(function(c, i){
+    var li = document.createElement('li');
+    li.className = 'clipRow';
+    li.innerHTML =
+      '<div class="clipIdx">' + (i+1) + '</div>' +
+      '<div class="clipMeta"><div class="clipName"></div>' +
+      '<div class="clipSub">' + (c.dur ? fmtTime(c.dur) : 'reading\u2026') + ' \u00B7 ' + (c.file.size/1048576).toFixed(1) + ' MB</div></div>' +
+      '<div class="clipBtns">' +
+      '<button data-a="up"' + (i === 0 ? ' disabled' : '') + ' aria-label="Move up">\u2191</button>' +
+      '<button data-a="down"' + (i === clips.length-1 ? ' disabled' : '') + ' aria-label="Move down">\u2193</button>' +
+      '<button data-a="x" aria-label="Remove">\u2715</button></div>';
+    li.querySelector('.clipName').textContent = c.file.name || ('Clip ' + (i+1));
+    var btns = li.querySelectorAll('button');
+    for(var b = 0; b < btns.length; b++){
+      (function(btn){
+        btn.addEventListener('click', function(){
+          var a = btn.getAttribute('data-a');
+          if(a === 'x') removeClip(i);
+          else moveClip(i, a === 'up' ? -1 : 1);
+        });
+      })(btns[b]);
+    }
+    list.appendChild(li);
+  });
+}
+function moveClip(i, d){
+  var j = i + d;
+  if(j < 0 || j >= clips.length) return;
+  var t = clips[i]; clips[i] = clips[j]; clips[j] = t;
+  renderList();
+}
+function removeClip(i){
+  var c = clips.splice(i, 1)[0];
+  if(!c) return;
+  try{ URL.revokeObjectURL(c.url); }catch(e){}
+  try{ if(c.srcNode) c.srcNode.disconnect(); }catch(e){}
+  if(c.v) c.v.remove();
+  renderList();
+}
+
+$('recordBtn').addEventListener('click', function(){ openCamera(); });
+
+var importWaiting = false, importAdviceTimer = null;
+function importStatus(msg, sticky){
+  var el = $('importStatus');
+  if(!msg){ el.classList.remove('on'); el.textContent = ''; return; }
+  el.textContent = msg;
+  el.classList.add('on');
+  if(!sticky){ setTimeout(function(){ if(el.textContent === msg) importStatus(''); }, 5000); }
+}
+$('addBtn').addEventListener('click', function(){
+  importWaiting = true;
+  clearTimeout(importAdviceTimer);
+  importStatus('Opening Photos\u2026 pick your clips, tap \u2713, then wait \u2014 big 4K videos can take up to a minute to transfer. Keep this tab open.', true);
+  $('addInput').click();
+});
+window.addEventListener('focus', function(){
+  if(!importWaiting) return;
+  clearTimeout(importAdviceTimer);
+  importAdviceTimer = setTimeout(function(){
+    if(importWaiting){
+      importWaiting = false;
+      importStatus('The video never arrived from Photos. Most common cause: the full-quality original is still in iCloud. Fix: open the Photos app, play that video start to finish once (this downloads the original), then come back and add it again. Wi-Fi helps for big files.', true);
+    }
+  }, 8000);
+});
+$('recordInput').addEventListener('change', function(e){ addFiles(e.target.files); e.target.value = ''; });
+$('addInput').addEventListener('change', function(e){
+  importWaiting = false;
+  clearTimeout(importAdviceTimer);
+  var n = e.target.files ? e.target.files.length : 0;
+  importStatus(n ? ('Received ' + n + ' video' + (n > 1 ? 's' : '') + ' \u2014 reading details\u2026') : 'Photos closed without sending a video.');
+  addFiles(e.target.files);
+  e.target.value = '';
+});
+$('altBtn').addEventListener('click', function(){
+  importWaiting = true;
+  clearTimeout(importAdviceTimer);
+  importStatus('Alternate picker \u2014 choose Photo Library on the next menu, pick one clip, then wait for the transfer.', true);
+  $('altInput').click();
+});
+$('altInput').addEventListener('change', function(e){
+  importWaiting = false;
+  clearTimeout(importAdviceTimer);
+  var n = e.target.files ? e.target.files.length : 0;
+  importStatus(n ? ('Received ' + n + ' file' + (n > 1 ? 's' : '') + ' \u2014 reading details\u2026') : 'Nothing was sent over.');
+  addFiles(e.target.files);
+  e.target.value = '';
+});
+
+var quality = 'std';
+function setQual(q){
+  quality = q;
+  $('qStd').classList.toggle('sel', q === 'std');
+  $('qMax').classList.toggle('sel', q === 'max');
+  lsSet('ds_quality', q);
+}
+$('qStd').addEventListener('click', function(){ setQual('std'); });
+$('qMax').addEventListener('click', function(){ setQual('max'); });
+if(lsGet('ds_quality') === 'max') setQual('max');
+
+/* ---------- in-app camera ---------- */
+var camStream = null, camRec = null, camChunks = [], camRecording = false;
+var camFacing = 'environment', camTimerInt = null, camT0 = 0, camWake = null, camCloseAfter = false;
+
+function openCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+    $('recordInput').click();
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: camFacing, width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } },
+    audio: true
+  }).then(function(stream){
+    camStream = stream;
+    var pv = $('camPreview');
+    pv.srcObject = stream;
+    pv.classList.toggle('mirror', camFacing === 'user');
+    var pp = pv.play();
+    if(pp && pp.catch) pp.catch(function(){});
+    $('camView').classList.remove('hidden');
+    if(navigator.wakeLock && navigator.wakeLock.request){
+      navigator.wakeLock.request('screen').then(function(l){ camWake = l; }).catch(function(){});
+    }
+  }).catch(function(){
+    toast('Camera not available here \u2014 using the basic recorder.');
+    $('recordInput').click();
+  });
+}
+
+function camPickMime(){
+  var cands = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  for(var i = 0; i < cands.length; i++){
+    if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(cands[i])) return cands[i];
+  }
+  return '';
+}
+
+function camStartRec(){
+  if(!camStream) return;
+  var mime = camPickMime();
+  var st = {};
+  try{ st = camStream.getVideoTracks()[0].getSettings() || {}; }catch(e){}
+  var px = (st.width || 1280) * (st.height || 720);
+  var vbr = px >= 7200000 ? 45000000 : (px >= 1800000 ? 20000000 : 12000000);
+  var opts = { videoBitsPerSecond: vbr, audioBitsPerSecond: 192000 };
+  if(mime) opts.mimeType = mime;
+  try{ camRec = new MediaRecorder(camStream, opts); }
+  catch(e){
+    try{ camRec = new MediaRecorder(camStream); }
+    catch(e2){ toast('Recording isn\u2019t supported here.'); return; }
+  }
+  camChunks = [];
+  camRec.ondataavailable = function(e){ if(e.data && e.data.size > 0) camChunks.push(e.data); };
+  camRec.onstop = function(){
+    var type = (camRec.mimeType || 'video/mp4');
+    var blob = new Blob(camChunks, { type: type });
+    var ext = type.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+    var t = new Date();
+    var nm = 'Clip ' + String(t.getHours()).padStart(2,'0') + '.' + String(t.getMinutes()).padStart(2,'0') + '.' + String(t.getSeconds()).padStart(2,'0') + '.' + ext;
+    var file;
+    try{ file = new File([blob], nm, { type: type }); }
+    catch(e){ file = blob; file.name = nm; }
+    addFiles([file]);
+    toast('Clip added \u2014 record another or tap Done.');
+    if(camCloseAfter){ camCloseAfter = false; closeCamera(); }
+  };
+  camRec.start(1000);
+  camRecording = true;
+  $('camShutter').classList.add('rec');
+  $('camFlip').disabled = true;
+  camT0 = performance.now();
+  $('camClock').textContent = '0:00';
+  $('camTimer').classList.add('on');
+  camTimerInt = setInterval(function(){
+    $('camClock').textContent = fmtTime((performance.now() - camT0) / 1000);
+  }, 250);
+}
+
+function camStopRec(){
+  if(!camRecording) return;
+  camRecording = false;
+  clearInterval(camTimerInt);
+  $('camTimer').classList.remove('on');
+  $('camShutter').classList.remove('rec');
+  $('camFlip').disabled = false;
+  try{ camRec.stop(); }catch(e){}
+}
+
+function closeCamera(){
+  if(camRecording){ camCloseAfter = true; camStopRec(); return; }
+  try{ if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); } }catch(e){}
+  camStream = null;
+  $('camPreview').srcObject = null;
+  $('camView').classList.add('hidden');
+  try{ if(camWake){ camWake.release(); camWake = null; } }catch(e){}
+}
+
+$('camShutter').addEventListener('click', function(){
+  if(camRecording) camStopRec(); else camStartRec();
+});
+$('camDone').addEventListener('click', function(){ closeCamera(); });
+$('camFlip').addEventListener('click', function(){
+  if(camRecording) return;
+  camFacing = (camFacing === 'environment') ? 'user' : 'environment';
+  try{ if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); } }catch(e){}
+  camStream = null;
+  openCamera();
+});
+
+/* ---------- build ---------- */
+$('createBtn').addEventListener('click', function(){
+  if(busy) return;
+  var nm = playerLine();
+  if(!nm){ toast('Add the player\u2019s name first.'); lastI.focus(); return; }
+  if(!clips.length){ toast('Add at least one video clip.'); return; }
+  for(var i = 0; i < clips.length; i++){
+    if(!clips[i].dur || !isFinite(clips[i].dur)){
+      toast('Still reading your clips \u2014 try again in a few seconds.');
+      return;
+    }
+  }
+  if(!window.MediaRecorder){
+    toast('This browser can\u2019t build video. Open this page in Safari and try again.');
+    return;
+  }
+  busy = true;
+
+  /* Audio graph + "bless" every video inside this tap so iOS lets us play them later */
+  try{
+    if(!audioCtx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+      dest = audioCtx.createMediaStreamDestination();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    clips.forEach(function(c){
+      if(!c.srcNode){
+        try{
+          c.srcNode = audioCtx.createMediaElementSource(c.v);
+          c.srcNode.connect(dest);
+        }catch(e){}
+      }
+    });
+    clips.forEach(function(c){
+      c.v.muted = false;
+      c.v.volume = 1;
+      var p = c.v.play();
+      if(p && p.then) p.then(function(){ c.v.pause(); }).catch(function(){});
+    });
+  }catch(e){}
+
+  setTimeout(function(){
+    startRender().catch(function(err){
+      toast('Something went wrong: ' + (err && err.message ? err.message : err));
+      resetToSetup();
+    });
+  }, 250);
+});
+
+function startRender(){
+  return new Promise(function(resolve, reject){
+    try{
+      var first = clips[0];
+      var vw = first.w || 1280, vh = first.h || 720;
+      var cap = (quality === 'max') ? 3840 : 1920;
+      var s = Math.min(1, cap / Math.max(vw, vh));
+      W = Math.max(2, Math.round(vw * s / 2) * 2);
+      H = Math.max(2, Math.round(vh * s / 2) * 2);
+
+      var stage = $('stage');
+      stage.width = W; stage.height = H;
+      stageCtx = stage.getContext('2d');
+      stageCtx.fillStyle = '#000';
+      stageCtx.fillRect(0, 0, W, H);
+
+      $('setup').classList.add('hidden');
+      $('renderView').classList.remove('hidden');
+      window.scrollTo(0, 0);
+
+      var stream = stage.captureStream(quality === 'max' ? 30 : 60);
+      dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+
+      var cands = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+      var mime = '';
+      for(var i = 0; i < cands.length; i++){
+        if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(cands[i])){ mime = cands[i]; break; }
+      }
+      var opts = { videoBitsPerSecond: (quality === 'max' ? 40000000 : 16000000), audioBitsPerSecond: 192000 };
+      if(mime) opts.mimeType = mime;
+      var rec;
+      try{ rec = new MediaRecorder(stream, opts); }
+      catch(e){ rec = new MediaRecorder(stream); }
+
+      var chunks = [];
+      rec.ondataavailable = function(e){ if(e.data && e.data.size > 0) chunks.push(e.data); };
+      var stopped = new Promise(function(res){ rec.onstop = res; });
+
+      totalDur = 3 + clips.reduce(function(a, c){ return a + c.dur; }, 0);
+
+      if(navigator.wakeLock && navigator.wakeLock.request){
+        navigator.wakeLock.request('screen').then(function(l){ wakeLock = l; }).catch(function(){});
+      }
+
+      rec.start(1000);
+      setStatus('Title card');
+
+      titlePhase()
+        .then(function(){ return playAllClips(); })
+        .then(function(){
+          setStatus('Finishing up');
+          rec.stop();
+          return stopped;
+        })
+        .then(function(){
+          try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
+          var type = mime || 'video/webm';
+          resultBlob = new Blob(chunks, { type: type });
+          var ext = type.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+          var base = [playerLine(), schoolI.value.trim(), dateI.value]
+            .filter(Boolean).join(' - ').replace(/[\\\/:*?"<>|]+/g, '');
+          resultName = (base || 'video') + '.' + ext;
+
+          if(resultURL){ try{ URL.revokeObjectURL(resultURL); }catch(e){} }
+          resultURL = URL.createObjectURL(resultBlob);
+          $('result').src = resultURL;
+          var dl = $('downloadLink');
+          dl.href = resultURL;
+          dl.setAttribute('download', resultName);
+          $('resultMeta').textContent = fmtTime(totalDur) + ' \u00B7 ' + (resultBlob.size/1048576).toFixed(0) + ' MB \u00B7 ' + resultName;
+
+          $('renderView').classList.add('hidden');
+          $('doneView').classList.remove('hidden');
+          window.scrollTo(0, 0);
+          busy = false;
+          resolve();
+        })
+        .catch(reject);
+    }catch(e){ reject(e); }
+  });
+}
+
+function titlePhase(){
+  return new Promise(function(res){
+    var t0 = performance.now();
+    function loop(){
+      var t = (performance.now() - t0) / 1000;
+      if(t >= 3){ updateProgress(3); res(); return; }
+      var a = Math.min(1, t / 0.6);
+      if(t > 2.55) a = Math.min(a, Math.max(0, (3 - t) / 0.45));
+      drawSlate(stageCtx, W, H, a);
+      updateProgress(t);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  });
+}
+
+function playAllClips(){
+  var chain = Promise.resolve();
+  clips.forEach(function(c, i){
+    chain = chain.then(function(){
+      setStatus('Clip ' + (i+1) + ' of ' + clips.length);
+      var base = 3;
+      for(var k = 0; k < i; k++) base += clips[k].dur;
+      return playThrough(c, base);
+    });
+  });
+  return chain;
+}
+
+function playThrough(c, base){
+  return new Promise(function(res){
+    var v = c.v;
+    var finished = false, raf = 0, guard = 0;
+    function finish(){
+      if(finished) return;
+      finished = true;
+      try{ v.pause(); }catch(e){}
+      cancelAnimationFrame(raf);
+      clearTimeout(guard);
+      res();
+    }
+    function draw(){
+      if(finished) return;
+      stageCtx.fillStyle = '#000';
+      stageCtx.fillRect(0, 0, W, H);
+      var vw = v.videoWidth || c.w, vh = v.videoHeight || c.h;
+      if(vw && vh){
+        var sc = Math.min(W / vw, H / vh);
+        var dw = vw * sc, dh = vh * sc;
+        try{ stageCtx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); }catch(e){}
+      }
+      updateProgress(base + Math.min(v.currentTime || 0, c.dur));
+      raf = requestAnimationFrame(draw);
+    }
+    try{ v.currentTime = 0; }catch(e){}
+    v.muted = false;
+    v.volume = 1;
+    v.addEventListener('ended', finish, { once: true });
+    guard = setTimeout(finish, (c.dur + 6) * 1000);
+    var p = v.play();
+    if(p && p.catch){
+      p.catch(function(){
+        v.muted = true;
+        var p2 = v.play();
+        if(p2 && p2.catch) p2.catch(function(){ finish(); });
+      });
+    }
+    raf = requestAnimationFrame(draw);
+  });
+}
+
+function updateProgress(sec){
+  var pct = totalDur ? Math.min(100, (sec / totalDur) * 100) : 0;
+  $('progressFill').style.width = pct + '%';
+  $('timeText').textContent = fmtTime(sec) + ' / ' + fmtTime(totalDur);
+}
+function setStatus(t){ $('statusText').textContent = t; }
+
+function resetToSetup(){
+  busy = false;
+  try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
+  $('renderView').classList.add('hidden');
+  $('doneView').classList.add('hidden');
+  $('setup').classList.remove('hidden');
+}
+
+/* ---------- share / done ---------- */
+$('shareBtn').addEventListener('click', function(){
+  if(!resultBlob) return;
+  var f;
+  try{ f = new File([resultBlob], resultName, { type: resultBlob.type }); }
+  catch(e){ f = null; }
+  if(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })){
+    navigator.share({ files: [f], title: resultName }).catch(function(){});
+  } else {
+    toast('Direct sharing isn\u2019t available here. Tap \u201CDownload file\u201D, then share it from the Files app.');
+  }
+});
+
+$('againBtn').addEventListener('click', function(){
+  while(clips.length) removeClip(0);
+  if(resultURL){ try{ URL.revokeObjectURL(resultURL); }catch(e){} resultURL = null; }
+  resultBlob = null;
+  $('result').removeAttribute('src');
+  resetToSetup();
+  window.scrollTo(0, 0);
+  toast('Info kept \u2014 add clips for the next video.');
+});
+
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && busy){
+    toast('Heads up \u2014 leaving this screen pauses the build.');
+  }
+});
+})();
+</script>
+</body>
+</html>
