@@ -26,7 +26,7 @@
   .brandBar{background:var(--blue); border-radius:16px; padding:14px 16px;
     display:flex; align-items:center; gap:13px;
     box-shadow:0 3px 10px rgba(0,90,156,.25);}
-  .badge{flex:none; display:block;}
+  .badge{flex:none; display:block; border-radius:10px;}
   .wordmark{font-family:'Yellowtail',cursive; font-size:31px; color:#fff; line-height:1.05;
     text-shadow:0 2px 0 rgba(0,0,0,.15);}
   .tag{color:#CFE3F5; font-size:12.5px; margin-top:3px;}
@@ -66,6 +66,13 @@
   .qual span{font-size:11.5px; color:var(--dim); font-weight:400;}
   .qual.sel{border-color:var(--blue); background:var(--blue-tint); color:var(--blue-deep);}
   .qual.sel span{color:var(--blue);}
+
+  .schoolRow{width:100%; justify-content:space-between; margin-top:8px; font-weight:700;
+    color:var(--blue-deep); background:var(--blue-tint); border-color:transparent;}
+  .schoolCount{color:var(--blue); font-weight:600; font-size:13px;}
+  .playerRow{display:flex; gap:8px; margin-top:8px;}
+  .playerPick{flex:1; justify-content:flex-start; text-align:left; font-weight:600;}
+  .playerDel{width:44px; flex:none; color:var(--red);}
 
   #clipList{list-style:none; margin:12px 0 0; padding:0;}
   .clipRow{display:flex; align-items:center; gap:10px; background:#F7FAFD;
@@ -141,12 +148,7 @@
 
 <header>
   <div class="brandBar">
-    <svg class="badge" viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
-      <circle cx="32" cy="32" r="30" fill="#FFFFFF" stroke="#D7E1EC" stroke-width="1.5"/>
-      <path d="M17 5 C7 20 7 44 17 59" stroke="#EF3E42" stroke-width="2.6" fill="none" stroke-dasharray="4 3" stroke-linecap="round"/>
-      <path d="M47 5 C57 20 57 44 47 59" stroke="#EF3E42" stroke-width="2.6" fill="none" stroke-dasharray="4 3" stroke-linecap="round"/>
-      <text x="32" y="41" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-style="italic" font-weight="bold" font-size="25" fill="#005A9C">LA</text>
-    </svg>
+    <img class="badge" src="dodger-stitch-icon.png" alt="Dodger Stitch logo" width="46" height="46">
     <div>
       <div class="wordmark">Dodger Stitch</div>
       <div class="tag">Shoot · Slate · Stitch · Share</div>
@@ -156,6 +158,12 @@
 </header>
 
 <main id="setup">
+  <section class="card">
+    <p class="eyebrow">Roster</p>
+    <div id="rosterList"></div>
+    <div id="rosterEmpty" class="qhint">Save players here once, then load them with one tap at the park. Fill in the info below and hit <b>Save player to roster</b>.</div>
+  </section>
+
   <section class="card">
     <p class="eyebrow">Step 1 · Info</p>
     <div class="btnRow">
@@ -174,6 +182,7 @@
     <input type="text" id="schoolName" placeholder="Kansas State" autocomplete="off">
     <label for="gameDate">Date</label>
     <input type="date" id="gameDate">
+    <button id="saveRosterBtn" class="ghost big">Save player to roster</button>
     <div class="slateWrap">
       <canvas id="titlePreview" width="1280" height="720"></canvas>
       <div class="hint">Live preview — this becomes the first 3 seconds of your video</div>
@@ -347,6 +356,83 @@ function persistFields(){
   el.addEventListener('change', function(){ persistFields(); updatePreview(); });
 });
 updatePreview();
+
+/* ---------- roster ---------- */
+function todayStr(){
+  var n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+}
+function rosterLoad(){
+  try{ return JSON.parse(lsGet('ds_roster') || '{}') || {}; }catch(e){ return {}; }
+}
+function rosterSave(r){ lsSet('ds_roster', JSON.stringify(r)); }
+var rosterOpen = {};
+function renderRoster(){
+  var r = rosterLoad();
+  var schools = Object.keys(r).sort();
+  var list = $('rosterList');
+  list.innerHTML = '';
+  var any = false;
+  schools.forEach(function(sc){
+    var players = r[sc];
+    if(!players || !players.length) return;
+    any = true;
+    var head = document.createElement('button');
+    head.className = 'schoolRow';
+    head.innerHTML = '<span class="schoolName"></span><span class="schoolCount"></span>';
+    head.querySelector('.schoolName').textContent = sc;
+    head.querySelector('.schoolCount').textContent = players.length + (rosterOpen[sc] ? ' \u25B4' : ' \u25BE');
+    head.addEventListener('click', function(){ rosterOpen[sc] = !rosterOpen[sc]; renderRoster(); });
+    list.appendChild(head);
+    if(rosterOpen[sc]){
+      players.forEach(function(p, idx){
+        var row = document.createElement('div');
+        row.className = 'playerRow';
+        row.innerHTML = '<button class="playerPick"></button><button class="playerDel" aria-label="Remove from roster">\u2715</button>';
+        row.querySelector('.playerPick').textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+        row.querySelector('.playerPick').addEventListener('click', function(){
+          lastI.value = p.ln;
+          firstI.value = p.fn;
+          posI.value = p.pos || '';
+          schoolI.value = sc;
+          dateI.value = todayStr();
+          persistFields();
+          updatePreview();
+          toast('Loaded ' + p.ln + ', ' + p.fn + ' \u2014 date set to today.');
+        });
+        row.querySelector('.playerDel').addEventListener('click', function(){
+          var r2 = rosterLoad();
+          if(r2[sc]){
+            r2[sc].splice(idx, 1);
+            if(!r2[sc].length) delete r2[sc];
+          }
+          rosterSave(r2);
+          renderRoster();
+          toast('Removed from roster.');
+        });
+        list.appendChild(row);
+      });
+    }
+  });
+  $('rosterEmpty').style.display = any ? 'none' : 'block';
+}
+$('saveRosterBtn').addEventListener('click', function(){
+  var ln = lastI.value.trim(), fn = firstI.value.trim(), ps = posI.value.trim(), sc = schoolI.value.trim();
+  if(!ln && !fn){ toast('Type the player\u2019s name first.'); lastI.focus(); return; }
+  if(!sc){ toast('Add a school so I can file this player under it.'); schoolI.focus(); return; }
+  var r = rosterLoad();
+  if(!r[sc]) r[sc] = [];
+  var hit = null;
+  r[sc].forEach(function(p){
+    if(p.ln.toLowerCase() === ln.toLowerCase() && p.fn.toLowerCase() === fn.toLowerCase()) hit = p;
+  });
+  if(hit){ hit.pos = ps; toast('Updated ' + (ln || fn) + ' on the roster.'); }
+  else { r[sc].push({ ln: ln, fn: fn, pos: ps }); toast('Saved to ' + sc + '.'); }
+  rosterOpen[sc] = true;
+  rosterSave(r);
+  renderRoster();
+});
+renderRoster();
 
 /* ---------- clips ---------- */
 function addFiles(fileList){
@@ -857,6 +943,12 @@ document.addEventListener('visibilitychange', function(){
     toast('Heads up \u2014 leaving this screen pauses the build.');
   }
 });
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 })();
 </script>
 </body>
