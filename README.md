@@ -1,2 +1,2 @@
-# MagnificoDesign.github.io.
+# MagnificoDesign.github.io
 Dodger Stitch
