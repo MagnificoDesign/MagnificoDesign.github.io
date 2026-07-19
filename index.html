@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="apple-mobile-web-app-title" content="Dodger Stitch">
+<meta name="apple-mobile-web-app-title" content="Dodger Scouting">
 <meta name="theme-color" content="#005A9C">
 <link rel="apple-touch-icon" href="dodger-stitch-icon.png">
 <link rel="icon" type="image/png" href="dodger-stitch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Yellowtail&display=swap" rel="stylesheet">
-<title>Dodger Stitch</title>
+<title>Dodger Scouting</title>
 <style>
   :root{
     --blue:#005A9C; --blue-deep:#003F73; --blue-tint:#E7F0F8;
@@ -71,8 +71,86 @@
     color:var(--blue-deep); background:var(--blue-tint); border-color:transparent;}
   .schoolCount{color:var(--blue); font-weight:600; font-size:13px;}
   .playerRow{display:flex; gap:8px; margin-top:8px;}
-  .playerPick{flex:1; justify-content:flex-start; text-align:left; font-weight:600;}
+  .playerPick{flex:1; justify-content:flex-start; text-align:left; font-weight:600; min-width:0;
+    flex-direction:column; align-items:flex-start;}
+  .pOutcome{display:block; font-size:11px; font-weight:700; letter-spacing:.05em;
+    color:var(--blue); margin-top:2px;}
+  .outcomeRow{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .outcomeRow select{width:100%; min-height:40px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:14px; text-align:center; font-family:inherit;
+    -webkit-appearance:none; appearance:none; padding:6px;}
+  .outcomeRow select.graded{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
+  .veloGrid select{width:100%; min-height:38px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:14px; text-align:center; font-family:inherit;
+    -webkit-appearance:none; appearance:none; padding:6px 4px;}
+  .veloGrid select.graded{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
   .playerDel{width:44px; flex:none; color:var(--red);}
+  .notesBtn{width:44px; flex:none; font-size:16px;}
+  .notesBtn.has{background:var(--blue-tint); border-color:var(--blue);}
+  .noteArea{width:100%; margin-top:8px; min-height:120px; background:#FFFDF2; border:1px solid #E8DFC0;
+    border-radius:10px; padding:10px; font-size:14px; font-family:inherit; color:var(--ink);}
+  .catHead{font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--faint); margin:14px 0 2px;}
+  .catRow{margin-top:8px;}
+  .catRow .qual{min-height:42px; padding:9px 10px;}
+  .rosterTools{margin-top:12px;}
+  .tabs{display:flex; gap:8px; margin-top:12px;}
+  .tab{flex:1; min-height:44px; font-weight:800; letter-spacing:.08em; font-size:13px;
+    background:#fff; border:1px solid var(--line); color:var(--dim); border-radius:12px;}
+  .tab.sel{background:var(--blue); border-color:var(--blue); color:#fff;}
+  #quickLoad{margin-bottom:2px;}
+  #cardTitle{font-size:17px; font-weight:800; color:var(--blue-deep); margin:8px 0 2px;}
+  #cardTitle .sub{display:block; font-size:12.5px; color:var(--dim); font-weight:600; margin-top:2px;}
+  #cardHost .scoutCard{margin-top:10px;}
+  .muSel{width:100%; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:10px;
+    background:#fff; color:var(--ink); font-size:14px; font-family:inherit;
+    -webkit-appearance:none; appearance:none; padding:8px;}
+  .muGrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .muCol{min-width:0;}
+  .muHead{font-size:12px; font-weight:800; color:var(--blue-deep); letter-spacing:.06em;
+    text-transform:uppercase; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .muRow{display:flex; gap:6px; margin-top:6px;}
+  .muName{font-size:13px; padding:9px 8px;}
+  .muName span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+  .muName .pOutcome{font-size:9.5px; letter-spacing:.03em; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; max-width:100%;}
+  .muRow .notesBtn{width:34px; min-height:34px; font-size:14px; padding:0; align-self:center;}
+  .typeRow{margin-bottom:10px;}
+  .typeRow .qual{min-height:40px; padding:8px;}
+  .bioGrid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:2px;}
+  .gradeCell input{width:100%; min-height:38px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:14px; text-align:center; padding:6px;
+    font-family:inherit; -webkit-appearance:none; appearance:none;}
+  .gradeCell input.vfilled{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
+  #backupNag{display:none; margin-top:10px; padding:10px 12px; border-radius:10px;
+    background:#FFF6E5; color:#7A4E00; font-size:13px; line-height:1.5;}
+  .scoutCard{margin-top:8px; padding:12px; background:#F7FAFD; border:1px solid var(--line); border-radius:10px;}
+  .gradeHead{font-size:11px; font-weight:700; letter-spacing:.12em; color:var(--blue-deep); margin:12px 0 6px;}
+  .scoutCard .gradeHead:first-child{margin-top:0;}
+  .gradeGrid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;}
+  .gradeCell label{font-size:10.5px; font-weight:700; color:var(--faint); margin:0 0 3px; text-align:center; display:block;}
+  .gradeCell select{width:100%; min-height:38px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:14px; text-align:center; font-family:inherit;
+    -webkit-appearance:none; appearance:none; padding:6px 4px;}
+  .gradeCell select.graded{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
+  .h1stChips{display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;}
+  .swBtn{width:100%; min-height:56px; font-weight:800; font-size:16px; margin-bottom:8px;
+    background:#fff; border:2px solid var(--blue); color:var(--blue-deep); border-radius:12px;}
+  .swBtn.run{background:var(--red); border-color:var(--red); color:#fff; font-size:26px;
+    font-variant-numeric:tabular-nums;}
+  .h1stChip{display:inline-flex; align-items:center; gap:7px; background:#fff; border:1px solid var(--line);
+    border-radius:999px; padding:6px 11px; font-size:13.5px; font-weight:600;}
+  .h1stChip button{border:none; background:none; color:var(--red); padding:0; min-height:0; font-size:13px;}
+  .h1stRow{display:flex; gap:8px; margin-top:8px;}
+  .h1stRow input{flex:1;}
+  .h1stAdd{width:74px; flex:none;}
+  .veloGrid{display:grid; grid-template-columns:52px 1fr 1fr; gap:8px; align-items:center;}
+  .veloHead{font-size:10.5px; font-weight:700; color:var(--faint); text-align:center;}
+  .veloLbl{font-size:11px; font-weight:700; color:var(--blue-deep);}
+  .veloGrid input{width:100%; min-height:38px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:14px; text-align:center; padding:6px;
+    font-family:inherit; -webkit-appearance:none; appearance:none;}
+  .veloGrid input.vfilled{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
 
   #clipList{list-style:none; margin:12px 0 0; padding:0;}
   .clipRow{display:flex; align-items:center; gap:10px; background:#F7FAFD;
@@ -148,20 +226,27 @@
 
 <header>
   <div class="brandBar">
-    <img class="badge" src="dodger-stitch-icon.png" alt="Dodger Stitch logo" width="46" height="46">
+    <img class="badge" src="dodger-stitch-icon.png" alt="Dodger Scouting logo" width="46" height="46">
     <div>
-      <div class="wordmark">Dodger Stitch</div>
-      <div class="tag">Shoot · Slate · Stitch · Share</div>
+      <div class="wordmark">Dodger Scouting</div>
+      <div class="tag">Shoot · Stitch · Grade · Share</div>
     </div>
   </div>
   <div class="stitch"></div>
 </header>
 
 <main id="setup">
+<nav class="tabs">
+  <button id="tabVideo" class="tab sel">VIDEO</button>
+  <button id="tabPlayers" class="tab">PLAYERS</button>
+  <button id="tabMatchup" class="tab">MATCHUP</button>
+</nav>
+
+<div id="paneVideo">
   <section class="card">
-    <p class="eyebrow">Roster</p>
-    <div id="rosterList"></div>
-    <div id="rosterEmpty" class="qhint">Save players here once, then load them with one tap at the park. Fill in the info below and hit <b>Save player to roster</b>.</div>
+    <p class="eyebrow">Quick load</p>
+    <input type="text" id="quickLoad" placeholder="Search a saved player to load" autocomplete="off">
+    <div id="quickResults"></div>
   </section>
 
   <section class="card">
@@ -180,6 +265,10 @@
     <input type="text" id="posName" placeholder="RHP" autocomplete="off">
     <label for="schoolName">School</label>
     <input type="text" id="schoolName" placeholder="Kansas State" autocomplete="off">
+    <div class="btnRow catRow">
+      <button id="catHS" class="grow qual">HS</button>
+      <button id="catNCAA" class="grow qual sel">NCAA</button>
+    </div>
     <label for="gameDate">Date</label>
     <input type="date" id="gameDate">
     <button id="saveRosterBtn" class="ghost big">Save player to roster</button>
@@ -215,6 +304,43 @@
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
+  <p class="fine">Dodger Scouting v10</p>
+</div>
+
+<div id="panePlayers" class="hidden">
+  <section class="card">
+    <p class="eyebrow" id="rosterEyebrow">Roster</p>
+    <input type="text" id="rosterSearch" placeholder="Search players, schools, or notes" autocomplete="off">
+    <div id="rosterList"></div>
+    <div id="rosterEmpty" class="qhint">No players saved yet. On the <b>VIDEO</b> tab, fill in a player's info and tap <b>Save player to roster</b> — they'll show up here.</div>
+    <div id="backupNag">Roster changes aren't backed up yet — tap <b>Back up roster</b> to save a copy that survives clearing Safari.</div>
+    <div class="btnRow rosterTools">
+      <button id="backupBtn" class="grow">Back up roster</button>
+      <button id="restoreBtn" class="grow">Restore</button>
+    </div>
+    <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
+  </section>
+</div>
+
+<div id="paneCard" class="hidden">
+  <section class="card">
+    <button id="cardBack" class="linkBtn">‹ Back</button>
+    <div id="cardTitle"></div>
+    <div id="cardHost"></div>
+  </section>
+</div>
+
+<div id="paneMatchup" class="hidden">
+  <section class="card">
+    <p class="eyebrow">Matchup</p>
+    <div class="btnRow">
+      <select id="muA" class="muSel"></select>
+      <select id="muB" class="muSel"></select>
+    </div>
+    <div id="muCols"></div>
+    <button id="muClear" class="linkBtn">Clear matchup</button>
+  </section>
+</div>
 </main>
 
 <div id="renderView" class="overlay hidden">
@@ -362,75 +488,1137 @@ function todayStr(){
   var n = new Date();
   return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
 }
+var CATS = ['HS', 'NCAA'];
+function blankRoster(){ return { HS: {}, NCAA: {} }; }
 function rosterLoad(){
-  try{ return JSON.parse(lsGet('ds_roster') || '{}') || {}; }catch(e){ return {}; }
+  try{
+    var v2 = JSON.parse(lsGet('ds_roster2') || 'null');
+    if(v2 && typeof v2 === 'object'){
+      if(!v2.HS) v2.HS = {};
+      if(!v2.NCAA) v2.NCAA = {};
+      return normRoster(v2);
+    }
+  }catch(e){}
+  try{
+    var old = JSON.parse(lsGet('ds_roster') || 'null');
+    if(old && typeof old === 'object' && Object.keys(old).length){
+      var mig = blankRoster();
+      Object.keys(old).forEach(function(sc){
+        mig.NCAA[sc] = (old[sc] || []).map(function(p){
+          return { ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: '' };
+        });
+      });
+      rosterSave(mig);
+      return mig;
+    }
+  }catch(e){}
+  return blankRoster();
 }
-function rosterSave(r){ lsSet('ds_roster', JSON.stringify(r)); }
-var rosterOpen = {};
-function renderRoster(){
+function rosterSave(r){ lsSet('ds_roster2', JSON.stringify(r)); }
+function rosterHash(){
+  var s = lsGet('ds_roster2') || '';
+  var h = 0;
+  for(var i = 0; i < s.length; i++){ h = (h * 31 + s.charCodeAt(i)) % 1000000007; }
+  return s.length + '-' + h;
+}
+function rosterCount(r){
+  var n = 0;
+  CATS.forEach(function(c){
+    Object.keys(r[c] || {}).forEach(function(sc){ n += (r[c][sc] || []).length; });
+  });
+  return n;
+}
+function updateBackupNag(){
+  var el = $('backupNag');
   var r = rosterLoad();
-  var schools = Object.keys(r).sort();
-  var list = $('rosterList');
-  list.innerHTML = '';
-  var any = false;
-  schools.forEach(function(sc){
-    var players = r[sc];
-    if(!players || !players.length) return;
-    any = true;
-    var head = document.createElement('button');
-    head.className = 'schoolRow';
-    head.innerHTML = '<span class="schoolName"></span><span class="schoolCount"></span>';
-    head.querySelector('.schoolName').textContent = sc;
-    head.querySelector('.schoolCount').textContent = players.length + (rosterOpen[sc] ? ' \u25B4' : ' \u25BE');
-    head.addEventListener('click', function(){ rosterOpen[sc] = !rosterOpen[sc]; renderRoster(); });
-    list.appendChild(head);
-    if(rosterOpen[sc]){
-      players.forEach(function(p, idx){
+  el.style.display = (rosterCount(r) && rosterHash() !== (lsGet('ds_backupHash') || '')) ? 'block' : 'none';
+}
+var rosterOpen = {}, notesOpen = {}, noteTimers = {}, moveOpen = {};
+var curCat = (lsGet('ds_cat') === 'HS') ? 'HS' : 'NCAA';
+function setCat(c){
+  curCat = c;
+  lsSet('ds_cat', c);
+  $('catHS').classList.toggle('sel', c === 'HS');
+  $('catNCAA').classList.toggle('sel', c === 'NCAA');
+}
+$('catHS').addEventListener('click', function(){ setCat('HS'); });
+$('catNCAA').addEventListener('click', function(){ setCat('NCAA'); });
+setCat(curCat);
+
+function pKey(cat, sc, p){ return cat + '|' + sc + '|' + p.ln.toLowerCase() + '|' + p.fn.toLowerCase(); }
+function sameName(a, b){
+  return (a.ln || '').toLowerCase() === (b.ln || '').toLowerCase() &&
+         (a.fn || '').toLowerCase() === (b.fn || '').toLowerCase();
+}
+var PITCH_KEYS = ['FBV','FBM','FBC','CB','SL','CH','OTH','CMD','ATH','AA','DEL','DEC'];
+var HIT_KEYS = ['HIT','RAW','PWR','DEF','RNG','RUN','COMP','ATH'];
+var VELO_KEYS = ['FB','CB','SL','CH','CU','OTH'];
+var ROLE_OPTS = ['R2','R3','R4','R5','R6','R7','R8'];
+var QUAL_OPTS = ['Poor','Fair','Good','Excellent'];
+function normPlayer(p){
+  p.ln = p.ln || ''; p.fn = p.fn || ''; p.pos = p.pos || '';
+  p.notes = p.notes || '';
+  p.grades = p.grades || {};
+  Object.keys(p.grades).forEach(function(k2){
+    var v2 = p.grades[k2];
+    if(typeof v2 === 'string'){ p.grades[k2] = { p: '', f: v2 }; }
+    else if(!v2){ p.grades[k2] = { p: '', f: '' }; }
+  });
+  p.h1st = p.h1st || [];
+  p.velos = p.velos || {};
+  p.outcome = p.outcome || { role: '', qual: '' };
+  p.ptype = p.ptype || '';
+  p.bio = p.bio || { ht: '', wt: '', bt: '' };
+  return p;
+}
+function normRoster(r){
+  CATS.forEach(function(c){
+    r[c] = r[c] || {};
+    Object.keys(r[c]).forEach(function(sc){ r[c][sc] = (r[c][sc] || []).map(normPlayer); });
+  });
+  return r;
+}
+function hasCard(p){
+  if(p.notes) return true;
+  if(p.h1st && p.h1st.length) return true;
+  if(p.outcome && (p.outcome.role || p.outcome.qual)) return true;
+  var b = p.bio || {};
+  if(b.ht || b.wt || b.bt) return true;
+  var g = p.grades || {};
+  var ks = Object.keys(g);
+  for(var i = 0; i < ks.length; i++){
+    if(g[ks[i]] && (g[ks[i]].p || g[ks[i]].f)) return true;
+  }
+  var vl = p.velos || {};
+  var vk = Object.keys(vl);
+  for(var j = 0; j < vk.length; j++){
+    if(vl[vk[j]] && (vl[vk[j]].range || vl[vk[j]].avg)) return true;
+  }
+  return false;
+}
+function saveToPlayer(cat, sc, p, apply){
+  var r2 = rosterLoad();
+  var arr = (r2[cat] || {})[sc] || [];
+  for(var i = 0; i < arr.length; i++){
+    if(sameName(arr[i], p)){ apply(arr[i]); break; }
+  }
+  rosterSave(r2);
+  updateBackupNag();
+}
+function buildReport(cat, sc, p){
+  var L = [];
+  L.push('SCOUT REPORT');
+  L.push(p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : ''));
+  L.push(sc + ' \u00B7 ' + cat);
+  var b = p.bio || {};
+  var bioLine = [b.ht, b.wt, b.bt].filter(Boolean).join(' \u00B7 ');
+  if(bioLine) L.push(bioLine);
+  var o = p.outcome || {};
+  if(o.role || o.qual){
+    L.push('Predicted Outcome: ' + (o.role || '') + (o.role && o.qual ? '-' : '') + (o.qual || ''));
+  }
+  L.push('Exported: ' + fmtDateStr(todayStr()));
+  var t = p.ptype || '';
+  var showP = !t || t === 'PITCHER' || t === '2WAY';
+  var showH = !t || t === 'HITTER' || t === '2WAY';
+  var gsec = function(title, keys, prefix){
+    var rows = [];
+    keys.forEach(function(gk){
+      var g = (p.grades || {})[prefix + gk];
+      if(g && (g.p || g.f)) rows.push(gk + ': ' + (g.p || '\u2014') + '/' + (g.f || '\u2014'));
+    });
+    if(rows.length){
+      L.push('');
+      L.push(title + ' (P/F)');
+      rows.forEach(function(r2){ L.push(r2); });
+    }
+  };
+  if(showP){
+    gsec('PITCHER', PITCH_KEYS, 'P_');
+    var vr = [];
+    VELO_KEYS.forEach(function(vk){
+      var v = (p.velos || {})[vk];
+      if(v && (v.range || v.avg)){
+        var s2 = vk + ': ' + (v.range || '');
+        if(v.avg) s2 += (v.range ? ' (avg ' + v.avg + ')' : 'avg ' + v.avg);
+        vr.push(s2);
+      }
+    });
+    if(vr.length){
+      L.push('');
+      L.push('VELOCITY');
+      vr.forEach(function(r2){ L.push(r2); });
+    }
+  }
+  if(showH){
+    gsec('HITTER', HIT_KEYS, 'H_');
+    if(p.h1st && p.h1st.length){
+      L.push('');
+      L.push('H1ST: ' + p.h1st.join(', '));
+    }
+  }
+  return L.join('\n');
+}
+function shareTextFile(fname, text){
+  var blob = new Blob([text], { type: 'text/plain' });
+  var f = null;
+  try{ f = new File([blob], fname, { type: 'text/plain' }); }catch(e){}
+  if(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })){
+    navigator.share({ files: [f], title: fname }).catch(function(){});
+  } else {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+function copyText(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('Report copied.'); }).catch(function(){ toast('Couldn\u2019t copy \u2014 use Share report instead.'); });
+  } else {
+    toast('Copy isn\u2019t available here \u2014 use Share report instead.');
+  }
+}
+
+/* ---------- navigation ---------- */
+var ui = { pane: 'video', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null };
+var PANES = ['video', 'players', 'card', 'matchup'];
+function showPane(name){
+  ui.pane = name;
+  if(ui.swTimer){ clearInterval(ui.swTimer); ui.swTimer = null; }
+  PANES.forEach(function(pn){
+    var el = $('pane' + pn.charAt(0).toUpperCase() + pn.slice(1));
+    if(el) el.classList.toggle('hidden', pn !== name);
+  });
+  var hl = (name === 'card') ? ui.back : name;
+  $('tabVideo').classList.toggle('sel', hl === 'video');
+  $('tabPlayers').classList.toggle('sel', hl === 'players');
+  $('tabMatchup').classList.toggle('sel', hl === 'matchup');
+  if(name === 'players') renderPlayers();
+  if(name === 'matchup') renderMatchup();
+  window.scrollTo(0, 0);
+}
+$('tabVideo').addEventListener('click', function(){ showPane('video'); });
+$('tabPlayers').addEventListener('click', function(){ showPane('players'); });
+$('tabMatchup').addEventListener('click', function(){ showPane('matchup'); });
+
+function loadPlayerToVideo(cat, sc, p){
+  lastI.value = p.ln;
+  firstI.value = p.fn;
+  posI.value = p.pos || '';
+  schoolI.value = sc;
+  setCat(cat);
+  dateI.value = todayStr();
+  persistFields();
+  updatePreview();
+  toast('Loaded ' + p.ln + ', ' + p.fn + ' \u2014 date set to today.');
+}
+function findPlayer(cat, sc, ref){
+  var arr = ((rosterLoad()[cat] || {})[sc]) || [];
+  for(var i = 0; i < arr.length; i++){
+    if(sameName(arr[i], ref)) return arr[i];
+  }
+  return null;
+}
+
+/* ---------- quick load (VIDEO tab) ---------- */
+function renderQuick(){
+  var q = ($('quickLoad').value || '').trim().toLowerCase();
+  var box = $('quickResults');
+  box.innerHTML = '';
+  if(!q) return;
+  var r = rosterLoad();
+  var out = 0;
+  CATS.forEach(function(cat){
+    Object.keys(r[cat] || {}).sort().forEach(function(sc){
+      (r[cat][sc] || []).forEach(function(p){
+        if(out >= 8) return;
+        var hay = (p.ln + ' ' + p.fn + ' ' + p.ln + ', ' + p.fn + ' ' + (p.pos || '') + ' ' + sc).toLowerCase();
+        if(hay.indexOf(q) < 0) return;
+        out++;
         var row = document.createElement('div');
         row.className = 'playerRow';
-        row.innerHTML = '<button class="playerPick"></button><button class="playerDel" aria-label="Remove from roster">\u2715</button>';
-        row.querySelector('.playerPick').textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
-        row.querySelector('.playerPick').addEventListener('click', function(){
-          lastI.value = p.ln;
-          firstI.value = p.fn;
-          posI.value = p.pos || '';
-          schoolI.value = sc;
-          dateI.value = todayStr();
-          persistFields();
-          updatePreview();
-          toast('Loaded ' + p.ln + ', ' + p.fn + ' \u2014 date set to today.');
+        var b = document.createElement('button');
+        b.className = 'playerPick';
+        var s1 = document.createElement('span');
+        s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+        var s2 = document.createElement('span');
+        s2.className = 'pOutcome';
+        s2.textContent = sc + ' \u00B7 ' + cat;
+        b.appendChild(s1);
+        b.appendChild(s2);
+        b.addEventListener('click', function(){
+          loadPlayerToVideo(cat, sc, p);
+          $('quickLoad').value = '';
+          renderQuick();
         });
-        row.querySelector('.playerDel').addEventListener('click', function(){
-          var r2 = rosterLoad();
-          if(r2[sc]){
-            r2[sc].splice(idx, 1);
-            if(!r2[sc].length) delete r2[sc];
-          }
-          rosterSave(r2);
-          renderRoster();
-          toast('Removed from roster.');
-        });
-        list.appendChild(row);
+        row.appendChild(b);
+        box.appendChild(row);
       });
-    }
+    });
   });
-  $('rosterEmpty').style.display = any ? 'none' : 'block';
+  if(!out){
+    var no = document.createElement('div');
+    no.className = 'qhint';
+    no.textContent = 'No saved players match.';
+    box.appendChild(no);
+  }
 }
+$('quickLoad').addEventListener('input', renderQuick);
+
+/* ---------- PLAYERS tab: drill-down ---------- */
+function navRow(label, sub, onTap){
+  var b = document.createElement('button');
+  b.className = 'schoolRow';
+  b.innerHTML = '<span class="schoolName"></span><span class="schoolCount"></span>';
+  b.querySelector('.schoolName').textContent = label;
+  b.querySelector('.schoolCount').textContent = sub;
+  b.addEventListener('click', onTap);
+  return b;
+}
+function backLink(label, onTap){
+  var b = document.createElement('button');
+  b.className = 'linkBtn';
+  b.textContent = '\u2039 ' + label;
+  b.addEventListener('click', onTap);
+  return b;
+}
+function playerRowEl(cat, sc, p, from, withDelete){
+  var row = document.createElement('div');
+  row.className = 'playerRow';
+  var pk2 = document.createElement('button');
+  pk2.className = 'playerPick';
+  var nm = document.createElement('span');
+  nm.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  pk2.appendChild(nm);
+  var subBits = [];
+  if(from === 'search') subBits.push(sc + ' (' + cat + ')');
+  if(p.outcome && (p.outcome.role || p.outcome.qual)){
+    subBits.push('Predicted Outcome \u00B7 ' + (p.outcome.role || '') +
+      (p.outcome.role && p.outcome.qual ? '-' : '') + (p.outcome.qual || '').toUpperCase());
+  }
+  if(subBits.length){
+    var os = document.createElement('span');
+    os.className = 'pOutcome';
+    os.textContent = subBits.join('  \u00B7  ');
+    pk2.appendChild(os);
+  }
+  pk2.addEventListener('click', function(){ openCard(cat, sc, p, 'players'); });
+  row.appendChild(pk2);
+  if(withDelete){
+    var del = document.createElement('button');
+    del.className = 'playerDel';
+    del.textContent = '\u2715';
+    del.setAttribute('aria-label', 'Remove from roster');
+    del.addEventListener('click', function(){
+      var r2 = rosterLoad();
+      var arr = (r2[cat] || {})[sc] || [];
+      for(var i = 0; i < arr.length; i++){
+        if(sameName(arr[i], p)){ arr.splice(i, 1); break; }
+      }
+      if(!arr.length && r2[cat]){ delete r2[cat][sc]; ui.school = null; }
+      rosterSave(r2);
+      renderRoster();
+      toast('Removed from roster.');
+    });
+    row.appendChild(del);
+  }
+  return row;
+}
+function renderPref(list, r){
+  list.appendChild(backLink('All players', function(){ ui.pref = false; renderPlayers(); }));
+  var ch = document.createElement('div');
+  ch.className = 'catHead';
+  ch.textContent = 'Pref List \u00B7 by Role';
+  list.appendChild(ch);
+  var QV = { Excellent: 4, Good: 3, Fair: 2, Poor: 1 };
+  var rows = [];
+  CATS.forEach(function(cat){
+    Object.keys(r[cat] || {}).forEach(function(sc){
+      (r[cat][sc] || []).forEach(function(p){
+        if(p.outcome && p.outcome.role){
+          rows.push({
+            cat: cat, sc: sc, p: p,
+            rv: parseInt(p.outcome.role.slice(1), 10) || 0,
+            qv: QV[p.outcome.qual] || 0
+          });
+        }
+      });
+    });
+  });
+  rows.sort(function(a, b){
+    if(b.rv !== a.rv) return b.rv - a.rv;
+    if(b.qv !== a.qv) return b.qv - a.qv;
+    return a.p.ln.toLowerCase() < b.p.ln.toLowerCase() ? -1 : 1;
+  });
+  if(!rows.length){
+    var no = document.createElement('div');
+    no.className = 'qhint';
+    no.textContent = 'Give players a Role on their card and they\u2019ll stack up here \u2014 highest Role on top.';
+    list.appendChild(no);
+    return;
+  }
+  rows.forEach(function(e2, i){
+    var row = document.createElement('div');
+    row.className = 'playerRow';
+    var idx = document.createElement('div');
+    idx.className = 'clipIdx';
+    idx.textContent = i + 1;
+    var b = document.createElement('button');
+    b.className = 'playerPick';
+    var s1 = document.createElement('span');
+    s1.textContent = e2.p.ln + ', ' + e2.p.fn + (e2.p.pos ? ' \u00B7 ' + e2.p.pos : '');
+    var s2 = document.createElement('span');
+    s2.className = 'pOutcome';
+    s2.textContent = e2.sc + ' (' + e2.cat + ')  \u00B7  ' + e2.p.outcome.role +
+      (e2.p.outcome.qual ? '-' + e2.p.outcome.qual.toUpperCase() : '');
+    b.appendChild(s1);
+    b.appendChild(s2);
+    b.addEventListener('click', function(){ openCard(e2.cat, e2.sc, e2.p, 'players'); });
+    row.appendChild(idx);
+    row.appendChild(b);
+    list.appendChild(row);
+  });
+}
+function renderPlayers(){
+  var q = ($('rosterSearch').value || '').trim().toLowerCase();
+  var r = rosterLoad();
+  var list = $('rosterList');
+  list.innerHTML = '';
+  var total = rosterCount(r);
+  $('rosterEyebrow').textContent = 'Roster' + (total ? ' \u00B7 ' + total + (total === 1 ? ' player' : ' players') : '');
+  $('rosterEmpty').style.display = total ? 'none' : 'block';
+  updateBackupNag();
+  if(!total) return;
+
+  /* global search overrides drill-down */
+  if(q){
+    var shown = 0;
+    CATS.forEach(function(cat){
+      Object.keys(r[cat] || {}).sort().forEach(function(sc){
+        var scMatch = sc.toLowerCase().indexOf(q) >= 0;
+        (r[cat][sc] || []).forEach(function(p){
+          if(shown >= 30) return;
+          var hay = (p.ln + ' ' + p.fn + ' ' + p.ln + ', ' + p.fn + ' ' + (p.pos || '') + ' ' + (p.notes || '')).toLowerCase();
+          if(scMatch || hay.indexOf(q) >= 0){
+            shown++;
+            list.appendChild(playerRowEl(cat, sc, p, 'search', false));
+          }
+        });
+      });
+    });
+    if(!shown){
+      var no = document.createElement('div');
+      no.className = 'qhint';
+      no.textContent = 'No matches.';
+      list.appendChild(no);
+    }
+    return;
+  }
+
+  if(ui.pref){ renderPref(list, r); return; }
+
+  /* level 0: categories */
+  if(!ui.cat){
+    var nRoled = 0;
+    CATS.forEach(function(cat){
+      Object.keys(r[cat] || {}).forEach(function(sc){
+        (r[cat][sc] || []).forEach(function(p){ if(p.outcome && p.outcome.role) nRoled++; });
+      });
+    });
+    list.appendChild(navRow('\u2605 PREF LIST', nRoled + ' \u203A', function(){
+      ui.pref = true;
+      renderPlayers();
+    }));
+    CATS.forEach(function(cat){
+      var n = 0;
+      Object.keys(r[cat] || {}).forEach(function(sc){ n += (r[cat][sc] || []).length; });
+      list.appendChild(navRow(cat === 'HS' ? 'HIGH SCHOOL' : 'NCAA', n + ' \u203A', function(){
+        ui.cat = cat;
+        renderPlayers();
+      }));
+    });
+    return;
+  }
+
+  /* level 1: schools in category */
+  if(!ui.school){
+    list.appendChild(backLink('All categories', function(){ ui.cat = null; renderPlayers(); }));
+    var ch = document.createElement('div');
+    ch.className = 'catHead';
+    ch.textContent = (ui.cat === 'HS') ? 'High School' : 'NCAA';
+    list.appendChild(ch);
+    var schools = Object.keys(r[ui.cat] || {}).sort(function(a, b){
+      return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
+    });
+    if(!schools.length){
+      var no2 = document.createElement('div');
+      no2.className = 'qhint';
+      no2.textContent = 'No ' + (ui.cat === 'HS' ? 'high school' : 'NCAA') + ' players saved yet.';
+      list.appendChild(no2);
+    }
+    schools.forEach(function(sc){
+      var n = (r[ui.cat][sc] || []).length;
+      if(!n) return;
+      list.appendChild(navRow(sc, n + ' \u203A', function(){
+        ui.school = sc;
+        renderPlayers();
+      }));
+    });
+    return;
+  }
+
+  /* level 2: roster of one school */
+  var cat = ui.cat, sc = ui.school;
+  var players = (r[cat] || {})[sc] || [];
+  if(!players.length){ ui.school = null; renderPlayers(); return; }
+  list.appendChild(backLink((cat === 'HS' ? 'High School' : 'NCAA') + ' schools', function(){
+    ui.school = null;
+    renderPlayers();
+  }));
+  var ch2 = document.createElement('div');
+  ch2.className = 'catHead';
+  ch2.textContent = sc + ' (' + cat + ')';
+  list.appendChild(ch2);
+  var expB = document.createElement('button');
+  expB.className = 'linkBtn';
+  expB.textContent = 'Export ' + sc + ' report';
+  expB.addEventListener('click', function(){
+    var parts = players.map(function(px){ return buildReport(cat, sc, px); });
+    shareTextFile(sc + ' - Reports - ' + todayStr() + '.txt', parts.join('\n\n==============================\n\n'));
+  });
+  list.appendChild(expB);
+  players.forEach(function(p){
+    list.appendChild(playerRowEl(cat, sc, p, 'roster', true));
+  });
+}
+$('rosterSearch').addEventListener('input', renderPlayers);
+
+/* ---------- full-screen player card ---------- */
+function openCard(cat, sc, p, from){
+  ui.player = { cat: cat, sc: sc, ln: p.ln, fn: p.fn };
+  ui.back = from || 'players';
+  showPane('card');
+  rerenderCard();
+}
+$('cardBack').addEventListener('click', function(){ showPane(ui.back); });
+function rerenderCard(){
+  if(ui.swTimer){ clearInterval(ui.swTimer); ui.swTimer = null; }
+  var host = $('cardHost');
+  host.innerHTML = '';
+  if(!ui.player){ showPane('players'); return; }
+  var cat = ui.player.cat, sc = ui.player.sc;
+  var p = findPlayer(cat, sc, ui.player);
+  if(!p){ showPane(ui.back); return; }
+  var tt = $('cardTitle');
+  tt.innerHTML = '';
+  var t1 = document.createElement('span');
+  t1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  var t2 = document.createElement('span');
+  t2.className = 'sub';
+  t2.textContent = sc + ' \u00B7 ' + cat;
+  tt.appendChild(t1);
+  tt.appendChild(t2);
+  host.appendChild(buildCardDOM(cat, sc, p));
+}
+function buildCardDOM(cat, sc, p){
+  var k = pKey(cat, sc, p);
+  var card = document.createElement('div');
+  card.className = 'scoutCard';
+
+  var mkVid = document.createElement('button');
+  mkVid.className = 'primary big';
+  mkVid.style.marginTop = '0';
+  mkVid.textContent = '\uD83C\uDFA5 Make video for this player';
+  mkVid.addEventListener('click', function(){
+    loadPlayerToVideo(cat, sc, p);
+    showPane('video');
+  });
+  card.appendChild(mkVid);
+
+  var t = p.ptype || '';
+  var showPitch = !t || t === 'PITCHER' || t === '2WAY';
+  var showHit = !t || t === 'HITTER' || t === '2WAY';
+  var typeRow = document.createElement('div');
+  typeRow.className = 'btnRow typeRow';
+  typeRow.style.marginTop = '12px';
+  [['HITTER', 'HITTER'], ['PITCHER', 'PITCHER'], ['2WAY', '2 WAY']].forEach(function(tp){
+    var tb = document.createElement('button');
+    tb.className = 'grow qual' + (t === tp[0] ? ' sel' : '');
+    tb.textContent = tp[1];
+    tb.addEventListener('click', function(){
+      var nv = (t === tp[0]) ? '' : tp[0];
+      saveToPlayer(cat, sc, p, function(x){ x.ptype = nv; });
+      rerenderCard();
+    });
+    typeRow.appendChild(tb);
+  });
+  card.appendChild(typeRow);
+
+  var bioG = document.createElement('div');
+  bioG.className = 'bioGrid';
+  [['ht', 'HT', '6\u20192'], ['wt', 'WT', '195'], ['bt', 'B-T', 'R/R']].forEach(function(bf){
+    var cell = document.createElement('div');
+    cell.className = 'gradeCell';
+    var lb0 = document.createElement('label');
+    lb0.textContent = bf[1];
+    var bin = document.createElement('input');
+    bin.type = 'text';
+    bin.placeholder = bf[2];
+    bin.value = ((p.bio || {})[bf[0]]) || '';
+    if(bin.value) bin.classList.add('vfilled');
+    bin.addEventListener('input', function(){
+      bin.classList.toggle('vfilled', !!bin.value.trim());
+      var tk = k + '|bio|' + bf[0];
+      clearTimeout(noteTimers[tk]);
+      var val = bin.value.trim();
+      noteTimers[tk] = setTimeout(function(){
+        saveToPlayer(cat, sc, p, function(x){ x.bio = x.bio || {}; x.bio[bf[0]] = val; });
+      }, 400);
+    });
+    cell.appendChild(lb0);
+    cell.appendChild(bin);
+    bioG.appendChild(cell);
+  });
+  card.appendChild(bioG);
+
+  var head = function(t2){
+    var h2 = document.createElement('div');
+    h2.className = 'gradeHead';
+    h2.textContent = t2;
+    return h2;
+  };
+  var gradeRows = function(keys, prefix){
+    var grid = document.createElement('div');
+    grid.className = 'veloGrid';
+    var g0 = document.createElement('div');
+    var gp = document.createElement('div');
+    gp.className = 'veloHead'; gp.textContent = 'P';
+    var gf = document.createElement('div');
+    gf.className = 'veloHead'; gf.textContent = 'F';
+    grid.appendChild(g0); grid.appendChild(gp); grid.appendChild(gf);
+    keys.forEach(function(gk){
+      var K = prefix + gk;
+      var lb = document.createElement('div');
+      lb.className = 'veloLbl';
+      lb.textContent = gk;
+      grid.appendChild(lb);
+      ['p', 'f'].forEach(function(field){
+        var sel = document.createElement('select');
+        var o0 = document.createElement('option');
+        o0.value = ''; o0.textContent = '\u2014';
+        sel.appendChild(o0);
+        for(var v = 20; v <= 80; v += 5){
+          var o = document.createElement('option');
+          o.value = String(v); o.textContent = String(v);
+          sel.appendChild(o);
+        }
+        var cur = (p.grades || {})[K];
+        sel.value = (cur && cur[field]) || '';
+        if(sel.value) sel.classList.add('graded');
+        sel.addEventListener('change', function(){
+          sel.classList.toggle('graded', !!sel.value);
+          var val = sel.value;
+          saveToPlayer(cat, sc, p, function(x){
+            x.grades = x.grades || {};
+            if(!x.grades[K] || typeof x.grades[K] !== 'object') x.grades[K] = { p: '', f: '' };
+            x.grades[K][field] = val;
+          });
+        });
+        grid.appendChild(sel);
+      });
+    });
+    return grid;
+  };
+  var mkOutSel = function(opts, field){
+    var sel = document.createElement('select');
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = (field === 'role') ? '\u2014 Role' : '\u2014 Quality';
+    sel.appendChild(o0);
+    opts.forEach(function(t3){
+      var o = document.createElement('option');
+      o.value = t3; o.textContent = t3;
+      sel.appendChild(o);
+    });
+    sel.value = (p.outcome && p.outcome[field]) || '';
+    if(sel.value) sel.classList.add('graded');
+    sel.addEventListener('change', function(){
+      sel.classList.toggle('graded', !!sel.value);
+      var val = sel.value;
+      saveToPlayer(cat, sc, p, function(x){
+        x.outcome = x.outcome || { role: '', qual: '' };
+        x.outcome[field] = val;
+      });
+    });
+    return sel;
+  };
+  card.appendChild(head('PREDICTED OUTCOME'));
+  var oRow = document.createElement('div');
+  oRow.className = 'outcomeRow';
+  oRow.appendChild(mkOutSel(ROLE_OPTS, 'role'));
+  oRow.appendChild(mkOutSel(QUAL_OPTS, 'qual'));
+  card.appendChild(oRow);
+
+  if(showPitch){
+    card.appendChild(head('PITCHER \u00B7 PRESENT / FUTURE'));
+    card.appendChild(gradeRows(PITCH_KEYS, 'P_'));
+    card.appendChild(head('VELOCITY'));
+    var vg = document.createElement('div');
+    vg.className = 'veloGrid';
+    var vh0 = document.createElement('div');
+    var vh1 = document.createElement('div');
+    vh1.className = 'veloHead'; vh1.textContent = 'VELO';
+    var vh2 = document.createElement('div');
+    vh2.className = 'veloHead'; vh2.textContent = 'AVG';
+    vg.appendChild(vh0); vg.appendChild(vh1); vg.appendChild(vh2);
+    VELO_KEYS.forEach(function(vk){
+      var lb2 = document.createElement('div');
+      lb2.className = 'veloLbl';
+      lb2.textContent = vk;
+      vg.appendChild(lb2);
+      ['range', 'avg'].forEach(function(field){
+        var vin = document.createElement('input');
+        vin.type = 'text';
+        if(field === 'avg') vin.inputMode = 'decimal';
+        if(vk === 'FB') vin.placeholder = (field === 'range') ? '94-97' : '95';
+        vin.value = ((p.velos || {})[vk] || {})[field] || '';
+        if(vin.value) vin.classList.add('vfilled');
+        vin.addEventListener('input', function(){
+          vin.classList.toggle('vfilled', !!vin.value.trim());
+          var tk = k + '|velo|' + vk + '|' + field;
+          clearTimeout(noteTimers[tk]);
+          var val = vin.value.trim();
+          noteTimers[tk] = setTimeout(function(){
+            saveToPlayer(cat, sc, p, function(x){
+              x.velos = x.velos || {};
+              x.velos[vk] = x.velos[vk] || {};
+              x.velos[vk][field] = val;
+            });
+          }, 400);
+        });
+        vg.appendChild(vin);
+      });
+    });
+    card.appendChild(vg);
+  }
+
+  if(showHit){
+    card.appendChild(head('HITTER \u00B7 PRESENT / FUTURE'));
+    card.appendChild(gradeRows(HIT_KEYS, 'H_'));
+    card.appendChild(head('H1ST \u00B7 HOME TO FIRST'));
+    var swB = document.createElement('button');
+    swB.className = 'swBtn';
+    swB.textContent = '\u23F1 Tap at contact';
+    var swT0 = 0;
+    swB.addEventListener('click', function(){
+      if(!ui.swTimer){
+        swT0 = performance.now();
+        swB.classList.add('run');
+        ui.swTimer = setInterval(function(){
+          swB.textContent = ((performance.now() - swT0) / 1000).toFixed(2);
+        }, 50);
+      } else {
+        var el = (performance.now() - swT0) / 1000;
+        clearInterval(ui.swTimer);
+        ui.swTimer = null;
+        swB.classList.remove('run');
+        swB.textContent = '\u23F1 Tap at contact';
+        if(el > 15){ toast('Timer ran long \u2014 not saved.'); return; }
+        var tstr = el.toFixed(2);
+        p.h1st = p.h1st || [];
+        p.h1st.push(tstr);
+        saveToPlayer(cat, sc, p, function(x){ x.h1st = p.h1st.slice(); });
+        renderChips();
+        toast(tstr + ' saved to H1ST.');
+      }
+    });
+    card.appendChild(swB);
+    var chips = document.createElement('div');
+    chips.className = 'h1stChips';
+    var renderChips = function(){
+      chips.innerHTML = '';
+      (p.h1st || []).forEach(function(t4, ti){
+        var chip = document.createElement('span');
+        chip.className = 'h1stChip';
+        var tx = document.createElement('span');
+        tx.textContent = t4;
+        var xb = document.createElement('button');
+        xb.textContent = '\u2715';
+        xb.setAttribute('aria-label', 'Remove this time');
+        xb.addEventListener('click', function(){
+          p.h1st.splice(ti, 1);
+          saveToPlayer(cat, sc, p, function(x){ x.h1st = p.h1st.slice(); });
+          renderChips();
+        });
+        chip.appendChild(tx);
+        chip.appendChild(xb);
+        chips.appendChild(chip);
+      });
+    };
+    renderChips();
+    card.appendChild(chips);
+    var h1r = document.createElement('div');
+    h1r.className = 'h1stRow';
+    var h1i = document.createElement('input');
+    h1i.type = 'text';
+    h1i.inputMode = 'decimal';
+    h1i.placeholder = 'e.g. 4.21';
+    var h1b = document.createElement('button');
+    h1b.className = 'h1stAdd';
+    h1b.textContent = 'Add';
+    h1b.addEventListener('click', function(){
+      var v = h1i.value.trim();
+      if(!v) return;
+      if(!/^\d+(\.\d+)?$/.test(v)){ toast('Times should be a number, like 4.21'); return; }
+      p.h1st = p.h1st || [];
+      p.h1st.push(v);
+      saveToPlayer(cat, sc, p, function(x){ x.h1st = p.h1st.slice(); });
+      h1i.value = '';
+      renderChips();
+    });
+    h1r.appendChild(h1i);
+    h1r.appendChild(h1b);
+    card.appendChild(h1r);
+  }
+
+  card.appendChild(head('NOTES'));
+  var ta = document.createElement('textarea');
+  ta.className = 'noteArea';
+  ta.placeholder = 'Private notes \u2014 these never appear in videos or anything you share.';
+  ta.value = p.notes || '';
+  ta.addEventListener('input', function(){
+    clearTimeout(noteTimers[k]);
+    var val = ta.value;
+    noteTimers[k] = setTimeout(function(){
+      saveToPlayer(cat, sc, p, function(x){ x.notes = val; });
+    }, 400);
+  });
+  card.appendChild(ta);
+  var nd = document.createElement('button');
+  nd.className = 'linkBtn';
+  nd.textContent = '+ Today\u2019s date';
+  nd.addEventListener('click', function(){
+    var stamp = '\u2014 ' + fmtDateStr(todayStr()) + ' \u2014\n';
+    ta.value = ta.value ? (ta.value.replace(/\s+$/, '') + '\n\n' + stamp) : stamp;
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+    ta.scrollTop = ta.scrollHeight;
+  });
+  card.appendChild(nd);
+
+  var actRow = document.createElement('div');
+  actRow.className = 'btnRow rosterTools';
+  var repB = document.createElement('button');
+  repB.className = 'grow primary';
+  repB.textContent = 'Share report';
+  repB.addEventListener('click', function(){
+    shareTextFile(p.ln + ', ' + p.fn + ' - Report - ' + todayStr() + '.txt', buildReport(cat, sc, p));
+  });
+  var cpB = document.createElement('button');
+  cpB.className = 'grow';
+  cpB.textContent = 'Copy report';
+  cpB.addEventListener('click', function(){ copyText(buildReport(cat, sc, p)); });
+  actRow.appendChild(repB);
+  actRow.appendChild(cpB);
+  card.appendChild(actRow);
+
+  var mvL = document.createElement('button');
+  mvL.className = 'linkBtn';
+  mvL.textContent = 'Move player\u2026';
+  mvL.addEventListener('click', function(){ moveOpen[k] = !moveOpen[k]; rerenderCard(); });
+  card.appendChild(mvL);
+  if(moveOpen[k]){
+    var mCat = cat;
+    var mvRow = document.createElement('div');
+    mvRow.className = 'h1stRow';
+    var mvIn = document.createElement('input');
+    mvIn.type = 'text';
+    mvIn.placeholder = 'New school';
+    mvIn.value = sc;
+    var mvCat = document.createElement('button');
+    mvCat.className = 'h1stAdd';
+    mvCat.textContent = mCat;
+    mvCat.addEventListener('click', function(){
+      mCat = (mCat === 'HS') ? 'NCAA' : 'HS';
+      mvCat.textContent = mCat;
+    });
+    var mvGo = document.createElement('button');
+    mvGo.className = 'h1stAdd primary';
+    mvGo.textContent = 'Move';
+    mvGo.addEventListener('click', function(){
+      var ns = mvIn.value.trim();
+      if(!ns){ toast('Type the new school first.'); return; }
+      if(ns === sc && mCat === cat){ toast('That\u2019s where he already is.'); return; }
+      var r2 = rosterLoad();
+      r2[mCat][ns] = r2[mCat][ns] || [];
+      var dup = null;
+      r2[mCat][ns].forEach(function(x){ if(sameName(x, p)) dup = x; });
+      if(dup){ toast('A player with that name is already at ' + ns + '.'); return; }
+      var src = (r2[cat] || {})[sc] || [];
+      var moved = null;
+      for(var i = 0; i < src.length; i++){
+        if(sameName(src[i], p)){ moved = src.splice(i, 1)[0]; break; }
+      }
+      if(!moved){ toast('Couldn\u2019t find the player to move.'); return; }
+      if(!src.length) delete r2[cat][sc];
+      r2[mCat][ns].push(moved);
+      rosterSave(r2);
+      moveOpen[k] = false;
+      ui.player = { cat: mCat, sc: ns, ln: p.ln, fn: p.fn };
+      if(ui.school === sc && ui.cat === cat) ui.school = null;
+      rerenderCard();
+      toast('Moved to ' + ns + ' (' + mCat + ').');
+    });
+    mvRow.appendChild(mvIn);
+    mvRow.appendChild(mvCat);
+    mvRow.appendChild(mvGo);
+    card.appendChild(mvRow);
+  }
+  return card;
+}
+
+/* ---------- MATCHUP tab ---------- */
+function muLoad(){
+  try{ return JSON.parse(lsGet('ds_matchup') || '{}') || {}; }catch(e){ return {}; }
+}
+function muSave(m){ lsSet('ds_matchup', JSON.stringify(m)); }
+function muFill(sel, val){
+  sel.innerHTML = '';
+  var o0 = document.createElement('option');
+  o0.value = '';
+  o0.textContent = '\u2014 Pick a team \u2014';
+  sel.appendChild(o0);
+  var r = rosterLoad();
+  CATS.forEach(function(cat){
+    var schools = Object.keys(r[cat] || {}).sort();
+    if(!schools.length) return;
+    var og = document.createElement('optgroup');
+    og.label = (cat === 'HS') ? 'High School' : 'NCAA';
+    schools.forEach(function(sc){
+      if(!(r[cat][sc] || []).length) return;
+      var o = document.createElement('option');
+      o.value = cat + '|' + sc;
+      o.textContent = sc;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  sel.value = val || '';
+  if(sel.value !== (val || '')) sel.value = '';
+}
+function muColEl(side){
+  var col = document.createElement('div');
+  col.className = 'muCol';
+  if(!side){
+    var hint = document.createElement('div');
+    hint.className = 'qhint';
+    hint.textContent = 'Pick a team above.';
+    col.appendChild(hint);
+    return col;
+  }
+  var parts = side.split('|');
+  var cat = parts[0], sc = parts.slice(1).join('|');
+  var r = rosterLoad();
+  var players = (r[cat] || {})[sc] || [];
+  var hd = document.createElement('div');
+  hd.className = 'muHead';
+  hd.textContent = sc;
+  col.appendChild(hd);
+  if(!players.length){
+    var no = document.createElement('div');
+    no.className = 'qhint';
+    no.textContent = 'No players saved.';
+    col.appendChild(no);
+    return col;
+  }
+  players.forEach(function(p){
+    var row = document.createElement('div');
+    row.className = 'muRow';
+    var nb = document.createElement('button');
+    nb.className = 'playerPick muName';
+    var s1 = document.createElement('span');
+    s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+    nb.appendChild(s1);
+    if(p.outcome && (p.outcome.role || p.outcome.qual)){
+      var s2 = document.createElement('span');
+      s2.className = 'pOutcome';
+      s2.textContent = (p.outcome.role || '') + (p.outcome.role && p.outcome.qual ? '-' : '') + (p.outcome.qual || '').toUpperCase();
+      nb.appendChild(s2);
+    }
+    nb.addEventListener('click', function(){
+      loadPlayerToVideo(cat, sc, p);
+      showPane('video');
+    });
+    var cb = document.createElement('button');
+    cb.className = 'notesBtn';
+    cb.textContent = '\uD83D\uDCDD';
+    if(hasCard(p)) cb.classList.add('has');
+    cb.addEventListener('click', function(){ openCard(cat, sc, p, 'matchup'); });
+    row.appendChild(nb);
+    row.appendChild(cb);
+    col.appendChild(row);
+  });
+  return col;
+}
+function renderMatchup(){
+  var m = muLoad();
+  muFill($('muA'), m.a);
+  muFill($('muB'), m.b);
+  var cols = $('muCols');
+  cols.innerHTML = '';
+  if(!m.a && !m.b){
+    var hint = document.createElement('div');
+    hint.className = 'qhint';
+    hint.textContent = 'Pick two teams and this becomes your game-day page: tap a name to make his video, tap \uD83D\uDCDD to grade him.';
+    cols.appendChild(hint);
+    return;
+  }
+  var grid = document.createElement('div');
+  grid.className = 'muGrid';
+  grid.appendChild(muColEl(m.a));
+  grid.appendChild(muColEl(m.b));
+  cols.appendChild(grid);
+}
+$('muA').addEventListener('change', function(){
+  var m = muLoad();
+  m.a = $('muA').value;
+  muSave(m);
+  renderMatchup();
+});
+$('muB').addEventListener('change', function(){
+  var m = muLoad();
+  m.b = $('muB').value;
+  muSave(m);
+  renderMatchup();
+});
+$('muClear').addEventListener('click', function(){
+  muSave({});
+  renderMatchup();
+});
+
+/* router kept for legacy callers */
+function renderRoster(){
+  if(ui.pane === 'players') renderPlayers();
+  if(ui.pane === 'matchup') renderMatchup();
+  if(ui.pane === 'card') rerenderCard();
+  updateBackupNag();
+}
+showPane('video');
+
 $('saveRosterBtn').addEventListener('click', function(){
   var ln = lastI.value.trim(), fn = firstI.value.trim(), ps = posI.value.trim(), sc = schoolI.value.trim();
   if(!ln && !fn){ toast('Type the player\u2019s name first.'); lastI.focus(); return; }
   if(!sc){ toast('Add a school so I can file this player under it.'); schoolI.focus(); return; }
   var r = rosterLoad();
-  if(!r[sc]) r[sc] = [];
+  if(!r[curCat][sc]) r[curCat][sc] = [];
   var hit = null;
-  r[sc].forEach(function(p){
-    if(p.ln.toLowerCase() === ln.toLowerCase() && p.fn.toLowerCase() === fn.toLowerCase()) hit = p;
-  });
-  if(hit){ hit.pos = ps; toast('Updated ' + (ln || fn) + ' on the roster.'); }
-  else { r[sc].push({ ln: ln, fn: fn, pos: ps }); toast('Saved to ' + sc + '.'); }
-  rosterOpen[sc] = true;
+  r[curCat][sc].forEach(function(p){ if(sameName(p, { ln: ln, fn: fn })) hit = p; });
+  if(hit){
+    hit.pos = ps;
+    toast('Updated ' + (ln || fn) + ' on the roster.');
+  } else {
+    r[curCat][sc].push({ ln: ln, fn: fn, pos: ps, notes: '', grades: {}, h1st: [], velos: {}, outcome: { role: '', qual: '' }, ptype: '', bio: { ht: '', wt: '', bt: '' } });
+    toast('Saved to ' + sc + ' (' + curCat + ').');
+  }
+  rosterOpen[curCat + '|' + sc] = true;
   rosterSave(r);
   renderRoster();
+});
+
+$('backupBtn').addEventListener('click', function(){
+  var r = rosterLoad();
+  if(!rosterCount(r)){ toast('Roster is empty \u2014 nothing to back up yet.'); return; }
+  var data = JSON.stringify({ app: 'dodger-scouting', v: 2, exported: new Date().toISOString(), roster: r });
+  var blob = new Blob([data], { type: 'application/json' });
+  var fname = 'dodger-scouting-roster.json';
+  var markDone = function(){ lsSet('ds_backupHash', rosterHash()); updateBackupNag(); toast('Roster backed up.'); };
+  var f = null;
+  try{ f = new File([blob], fname, { type: 'application/json' }); }catch(e){}
+  if(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })){
+    navigator.share({ files: [f], title: fname }).then(markDone).catch(function(){});
+  } else {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    markDone();
+  }
+});
+$('restoreBtn').addEventListener('click', function(){ $('restoreInput').click(); });
+$('restoreInput').addEventListener('change', function(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    try{
+      var obj = JSON.parse(rd.result);
+      var inc = (obj && obj.roster) ? obj.roster : obj;
+      if(!inc || typeof inc !== 'object') throw new Error('bad');
+      var r = rosterLoad();
+      var added = 0, updated = 0;
+      CATS.forEach(function(cat){
+        var schools = inc[cat] || {};
+        Object.keys(schools).forEach(function(sc){
+          (schools[sc] || []).forEach(function(p){
+            if(!p || (!p.ln && !p.fn)) return;
+            if(!r[cat][sc]) r[cat][sc] = [];
+            var hit = null;
+            r[cat][sc].forEach(function(x){ if(sameName(x, p)) hit = x; });
+            if(hit){
+              if(p.pos) hit.pos = p.pos;
+              if((p.notes || '').length > (hit.notes || '').length) hit.notes = p.notes;
+              hit.grades = hit.grades || {};
+              var ig = p.grades || {};
+              Object.keys(ig).forEach(function(gk){
+                var v = ig[gk];
+                if(typeof v === 'string') v = { p: '', f: v };
+                if(!v || (!v.p && !v.f)) return;
+                if(!hit.grades[gk] || typeof hit.grades[gk] !== 'object') hit.grades[gk] = { p: '', f: '' };
+                if(v.p) hit.grades[gk].p = v.p;
+                if(v.f) hit.grades[gk].f = v.f;
+              });
+              hit.outcome = hit.outcome || { role: '', qual: '' };
+              if(p.outcome){
+                if(p.outcome.role) hit.outcome.role = p.outcome.role;
+                if(p.outcome.qual) hit.outcome.qual = p.outcome.qual;
+              }
+              if(p.ptype) hit.ptype = p.ptype;
+              hit.bio = hit.bio || { ht: '', wt: '', bt: '' };
+              var ib = p.bio || {};
+              if(ib.ht) hit.bio.ht = ib.ht;
+              if(ib.wt) hit.bio.wt = ib.wt;
+              if(ib.bt) hit.bio.bt = ib.bt;
+              hit.h1st = hit.h1st || [];
+              (p.h1st || []).forEach(function(t){ if(hit.h1st.indexOf(t) < 0) hit.h1st.push(t); });
+              hit.velos = hit.velos || {};
+              var iv = p.velos || {};
+              Object.keys(iv).forEach(function(vk){
+                if(!iv[vk]) return;
+                hit.velos[vk] = hit.velos[vk] || {};
+                if(iv[vk].range) hit.velos[vk].range = iv[vk].range;
+                if(iv[vk].avg) hit.velos[vk].avg = iv[vk].avg;
+              });
+              updated++;
+            } else {
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' } }));
+              added++;
+            }
+          });
+        });
+      });
+      rosterSave(r);
+      renderRoster();
+      toast('Roster restored \u2014 ' + added + ' added, ' + updated + ' updated.');
+    }catch(err){
+      toast('That file isn\u2019t a Dodger Scouting roster backup.');
+    }
+  };
+  rd.readAsText(f);
 });
 renderRoster();
 
