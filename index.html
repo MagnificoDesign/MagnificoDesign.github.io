@@ -128,6 +128,9 @@
   .muRow .notesBtn{width:34px; min-height:34px; font-size:14px; padding:0; align-self:center;}
   .muDel{width:28px; min-height:34px; padding:0; font-size:13px; color:var(--red);
     flex:none; align-self:center; border-radius:8px;}
+  .muArrow{width:38px; min-height:40px; padding:0; flex:none; font-size:15px; font-weight:800;
+    color:var(--blue-deep); border-radius:8px;}
+  .muOrderLink{padding:2px 0 6px; font-size:12.5px;}
   .typeRow{margin-bottom:10px;}
   .typeRow .qual{min-height:40px; padding:8px;}
   .bioGrid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:2px;}
@@ -321,7 +324,7 @@
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
-  <p class="fine">Dodger Scouting v14</p>
+  <p class="fine">Dodger Scouting v15</p>
 </div>
 
 <div id="panePlayers" class="hidden">
@@ -1798,6 +1801,7 @@ function buildCardDOM(cat, sc, p){
 }
 
 /* ---------- MATCHUP tab ---------- */
+var muOrderMode = {};
 function muLoad(){
   try{ return JSON.parse(lsGet('ds_matchup') || '{}') || {}; }catch(e){ return {}; }
 }
@@ -1863,6 +1867,36 @@ function muColEl(side){
     hdL.className = 'muHead';
     hdL.textContent = lu.name;
     col.appendChild(hdL);
+    var om = !!muOrderMode[side];
+    var ordL = document.createElement('button');
+    ordL.className = 'linkBtn muOrderLink';
+    ordL.textContent = om ? 'Done reordering' : 'Reorder';
+    ordL.addEventListener('click', function(){
+      muOrderMode[side] = !muOrderMode[side];
+      renderMatchup();
+    });
+    col.appendChild(ordL);
+    var muSwap = function(from, to){
+      var all3 = luLoad();
+      for(var j3 = 0; j3 < all3.length; j3++){
+        if(all3[j3].id === lu.id){
+          var t3 = all3[j3].players[from];
+          all3[j3].players[from] = all3[j3].players[to];
+          all3[j3].players[to] = t3;
+        }
+      }
+      luSave(all3);
+      renderMatchup();
+    };
+    var mkArrow = function(label, dis, fn3){
+      var ab = document.createElement('button');
+      ab.className = 'muArrow';
+      ab.textContent = label;
+      if(dis) ab.disabled = true;
+      ab.addEventListener('click', fn3);
+      return ab;
+    };
+    var nSlots = (lu.players || []).length;
     if(!(lu.players || []).length){
       var noP = document.createElement('div');
       noP.className = 'qhint';
@@ -1873,6 +1907,25 @@ function muColEl(side){
       var row = document.createElement('div');
       row.className = 'muRow';
       var r2 = ref ? resolveRef(ref) : null;
+      if(om){
+        row.appendChild(mkArrow('\u25B2', i === 0, function(){ muSwap(i, i - 1); }));
+        var mid;
+        if(r2){
+          mid = document.createElement('button');
+          mid.className = 'playerPick muName';
+          var sm = document.createElement('span');
+          sm.textContent = (i + 1) + '. ' + r2.p.ln + ', ' + r2.p.fn;
+          mid.appendChild(sm);
+        } else {
+          mid = document.createElement('button');
+          mid.className = 'slotBtn muName';
+          mid.textContent = (i + 1) + '. \u2014 empty \u2014';
+        }
+        row.appendChild(mid);
+        row.appendChild(mkArrow('\u25BC', i === nSlots - 1, function(){ muSwap(i, i + 1); }));
+        col.appendChild(row);
+        return;
+      }
       if(r2){
         var p = r2.p;
         var nb = document.createElement('button');
