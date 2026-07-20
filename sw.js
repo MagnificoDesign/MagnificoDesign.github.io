@@ -1,5 +1,5 @@
 /* Dodger Scouting offline cache */
-var CACHE = 'dodger-scouting-v10';
+var CACHE = 'dodger-scouting-v14';
 var CORE = ['./', 'index.html', 'dodger-stitch-icon.png'];
 
 self.addEventListener('install', function(e){

@@ -75,10 +75,10 @@
     flex-direction:column; align-items:flex-start;}
   .pOutcome{display:block; font-size:11px; font-weight:700; letter-spacing:.05em;
     color:var(--blue); margin-top:2px;}
-  .outcomeRow{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .outcomeRow select{width:100%; min-height:40px; border:1px solid var(--line); border-radius:8px;
-    background:#fff; color:var(--ink); font-size:14px; text-align:center; font-family:inherit;
-    -webkit-appearance:none; appearance:none; padding:6px;}
+  .outcomeRow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;}
+  .outcomeRow select{width:100%; min-width:0; min-height:40px; border:1px solid var(--line); border-radius:8px;
+    background:#fff; color:var(--ink); font-size:13px; text-align:center; font-family:inherit;
+    -webkit-appearance:none; appearance:none; padding:6px 2px;}
   .outcomeRow select.graded{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
   .veloGrid select{width:100%; min-height:38px; border:1px solid var(--line); border-radius:8px;
     background:#fff; color:var(--ink); font-size:14px; text-align:center; font-family:inherit;
@@ -102,6 +102,17 @@
   #cardTitle{font-size:17px; font-weight:800; color:var(--blue-deep); margin:8px 0 2px;}
   #cardTitle .sub{display:block; font-size:12.5px; color:var(--dim); font-weight:600; margin-top:2px;}
   #cardHost .scoutCard{margin-top:10px;}
+  .cardNav{display:flex; gap:8px; align-items:center; margin-top:10px;}
+  .cardNav button{flex:1; min-height:42px; font-weight:700;}
+  .cardNav .pos{flex:none; color:var(--dim); font-size:13px; font-weight:700; min-width:56px; text-align:center;}
+  .slotBtn{flex:1; min-width:0; border:1.5px dashed var(--blue); color:var(--blue); background:var(--blue-tint);
+    font-weight:700; border-radius:10px;}
+  .addSlot{width:100%; min-height:48px; margin-top:10px; border:1.5px dashed var(--blue);
+    background:var(--blue-tint); color:var(--blue-deep); font-weight:800; font-size:15px; border-radius:12px;}
+  .pickBanner{margin:2px 0 10px; padding:10px 12px; border-radius:10px; background:var(--blue); color:#fff;
+    font-size:13.5px; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .pickBanner button{background:rgba(255,255,255,.18); color:#fff; border:none; min-height:32px;
+    padding:6px 12px; font-size:12.5px; border-radius:8px; flex:none;}
   .muSel{width:100%; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:10px;
     background:#fff; color:var(--ink); font-size:14px; font-family:inherit;
     -webkit-appearance:none; appearance:none; padding:8px;}
@@ -115,6 +126,8 @@
   .muName .pOutcome{font-size:9.5px; letter-spacing:.03em; white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; max-width:100%;}
   .muRow .notesBtn{width:34px; min-height:34px; font-size:14px; padding:0; align-self:center;}
+  .muDel{width:28px; min-height:34px; padding:0; font-size:13px; color:var(--red);
+    flex:none; align-self:center; border-radius:8px;}
   .typeRow{margin-bottom:10px;}
   .typeRow .qual{min-height:40px; padding:8px;}
   .bioGrid{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:2px;}
@@ -300,11 +313,15 @@
       <button id="qStd" class="grow qual sel">Standard<span>1080p · extra smooth</span></button>
       <button id="qMax" class="grow qual">Maximum<span>Up to 4K · sharpest</span></button>
     </div>
+    <div class="btnRow" style="margin-top:8px">
+      <button id="audOff" class="grow qual sel">No sound<span>silent video</span></button>
+      <button id="audOn" class="grow qual">Keep sound<span>game audio</span></button>
+    </div>
   </section>
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
-  <p class="fine">Dodger Scouting v10</p>
+  <p class="fine">Dodger Scouting v14</p>
 </div>
 
 <div id="panePlayers" class="hidden">
@@ -318,6 +335,7 @@
       <button id="backupBtn" class="grow">Back up roster</button>
       <button id="restoreBtn" class="grow">Restore</button>
     </div>
+    <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
   </section>
 </div>
@@ -555,6 +573,7 @@ var HIT_KEYS = ['HIT','RAW','PWR','DEF','RNG','RUN','COMP','ATH'];
 var VELO_KEYS = ['FB','CB','SL','CH','CU','OTH'];
 var ROLE_OPTS = ['R2','R3','R4','R5','R6','R7','R8'];
 var QUAL_OPTS = ['Poor','Fair','Good','Excellent'];
+var VALUE_OPTS = ['50K','150K','250K','400K','500K','750K','1M','1.25M','1.5M','2M','2.5M','3M','5M'];
 function normPlayer(p){
   p.ln = p.ln || ''; p.fn = p.fn || ''; p.pos = p.pos || '';
   p.notes = p.notes || '';
@@ -566,7 +585,8 @@ function normPlayer(p){
   });
   p.h1st = p.h1st || [];
   p.velos = p.velos || {};
-  p.outcome = p.outcome || { role: '', qual: '' };
+  p.outcome = p.outcome || { role: '', qual: '', val: '' };
+  p.outcome.val = p.outcome.val || '';
   p.ptype = p.ptype || '';
   p.bio = p.bio || { ht: '', wt: '', bt: '' };
   return p;
@@ -578,10 +598,19 @@ function normRoster(r){
   });
   return r;
 }
+function outLine(o, upper){
+  if(!o) return '';
+  var q = upper ? (o.qual || '').toUpperCase() : (o.qual || '');
+  var rq = (o.role || '') + (o.role && o.qual ? '-' : '') + q;
+  var parts = [];
+  if(rq) parts.push(rq);
+  if(o.val) parts.push(o.val);
+  return parts.join(' \u00B7 ');
+}
 function hasCard(p){
   if(p.notes) return true;
   if(p.h1st && p.h1st.length) return true;
-  if(p.outcome && (p.outcome.role || p.outcome.qual)) return true;
+  if(p.outcome && (p.outcome.role || p.outcome.qual || p.outcome.val)) return true;
   var b = p.bio || {};
   if(b.ht || b.wt || b.bt) return true;
   var g = p.grades || {};
@@ -614,8 +643,9 @@ function buildReport(cat, sc, p){
   var bioLine = [b.ht, b.wt, b.bt].filter(Boolean).join(' \u00B7 ');
   if(bioLine) L.push(bioLine);
   var o = p.outcome || {};
-  if(o.role || o.qual){
-    L.push('Predicted Outcome: ' + (o.role || '') + (o.role && o.qual ? '-' : '') + (o.qual || ''));
+  var ol2 = outLine(o, false);
+  if(ol2){
+    L.push('Predicted Outcome: ' + ol2);
   }
   L.push('Exported: ' + fmtDateStr(todayStr()));
   var t = p.ptype || '';
@@ -659,10 +689,10 @@ function buildReport(cat, sc, p){
   }
   return L.join('\n');
 }
-function shareTextFile(fname, text){
-  var blob = new Blob([text], { type: 'text/plain' });
+function shareTextFile(fname, text, mime){
+  var blob = new Blob([text], { type: mime || 'text/plain' });
   var f = null;
-  try{ f = new File([blob], fname, { type: 'text/plain' }); }catch(e){}
+  try{ f = new File([blob], fname, { type: mime || 'text/plain' }); }catch(e){}
   if(f && navigator.canShare && navigator.share && navigator.canShare({ files: [f] })){
     navigator.share({ files: [f], title: fname }).catch(function(){});
   } else {
@@ -683,7 +713,7 @@ function copyText(text){
 }
 
 /* ---------- navigation ---------- */
-var ui = { pane: 'video', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null };
+var ui = { pane: 'video', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null, lineups: false, lineupId: null, lineupNav: null, pickSlot: null };
 var PANES = ['video', 'players', 'card', 'matchup'];
 function showPane(name){
   ui.pane = name;
@@ -795,17 +825,18 @@ function playerRowEl(cat, sc, p, from, withDelete){
   pk2.appendChild(nm);
   var subBits = [];
   if(from === 'search') subBits.push(sc + ' (' + cat + ')');
-  if(p.outcome && (p.outcome.role || p.outcome.qual)){
-    subBits.push('Predicted Outcome \u00B7 ' + (p.outcome.role || '') +
-      (p.outcome.role && p.outcome.qual ? '-' : '') + (p.outcome.qual || '').toUpperCase());
-  }
+  var ol = outLine(p.outcome, true);
+  if(ol) subBits.push('Predicted Outcome \u00B7 ' + ol);
   if(subBits.length){
     var os = document.createElement('span');
     os.className = 'pOutcome';
     os.textContent = subBits.join('  \u00B7  ');
     pk2.appendChild(os);
   }
-  pk2.addEventListener('click', function(){ openCard(cat, sc, p, 'players'); });
+  pk2.addEventListener('click', function(){
+    if(assignIfPicking(cat, sc, p)) return;
+    openCard(cat, sc, p, 'players');
+  });
   row.appendChild(pk2);
   if(withDelete){
     var del = document.createElement('button');
@@ -813,6 +844,7 @@ function playerRowEl(cat, sc, p, from, withDelete){
     del.textContent = '\u2715';
     del.setAttribute('aria-label', 'Remove from roster');
     del.addEventListener('click', function(){
+      if(!window.confirm('Delete ' + p.ln + ', ' + p.fn + ' from the roster? His grades, times, and notes go with him.')) return;
       var r2 = rosterLoad();
       var arr = (r2[cat] || {})[sc] || [];
       for(var i = 0; i < arr.length; i++){
@@ -826,6 +858,327 @@ function playerRowEl(cat, sc, p, from, withDelete){
     row.appendChild(del);
   }
   return row;
+}
+/* ---------- lineups ---------- */
+function luLoad(){
+  try{ return JSON.parse(lsGet('ds_lineups') || '[]') || []; }catch(e){ return []; }
+}
+function luSave(arr){ lsSet('ds_lineups', JSON.stringify(arr)); }
+function luFind(id){
+  var arr = luLoad();
+  for(var i = 0; i < arr.length; i++){ if(arr[i].id === id) return arr[i]; }
+  return null;
+}
+function resolveRef(ref){
+  var p = findPlayer(ref.cat, ref.sc, ref);
+  return p ? { cat: ref.cat, sc: ref.sc, p: p } : null;
+}
+function stepLineup(dir){
+  var nav = ui.lineupNav;
+  if(!nav) return;
+  var lu = luFind(nav.id);
+  if(!lu || !lu.players.length){ ui.lineupNav = null; rerenderCard(); return; }
+  var n = lu.players.length;
+  var idx = nav.idx;
+  for(var g = 0; g < n; g++){
+    idx = (idx + dir + n) % n;
+    var rf = lu.players[idx];
+    var res = rf ? resolveRef(rf) : null;
+    if(res){
+      nav.idx = idx;
+      ui.player = { cat: res.cat, sc: res.sc, ln: res.p.ln, fn: res.p.fn };
+      rerenderCard();
+      return;
+    }
+  }
+}
+function enterPick(luId, idx, origin){
+  ui.pickSlot = { luId: luId, idx: idx, origin: origin };
+  ui.pref = false;
+  ui.lineups = false;
+  ui.lineupId = null;
+  ui.cat = null;
+  ui.school = null;
+  showPane('players');
+}
+function endPick(){
+  var ps = ui.pickSlot;
+  ui.pickSlot = null;
+  if(!ps) return;
+  if(ps.origin === 'matchup'){
+    showPane('matchup');
+  } else {
+    ui.lineups = true;
+    ui.lineupId = ps.luId;
+    showPane('players');
+  }
+}
+function assignIfPicking(cat, sc, p){
+  if(!ui.pickSlot) return false;
+  var ps = ui.pickSlot;
+  var all = luLoad();
+  var lu = null;
+  for(var i = 0; i < all.length; i++){ if(all[i].id === ps.luId) lu = all[i]; }
+  if(!lu){ toast('That lineup no longer exists.'); endPick(); return true; }
+  var dupAt = -1;
+  (lu.players || []).forEach(function(ref, j){
+    if(ref && ref.cat === cat && ref.sc === sc && sameName(ref, p)) dupAt = j;
+  });
+  if(dupAt >= 0){
+    toast('Already in this lineup \u2014 Spot ' + (dupAt + 1) + '.');
+    return true;
+  }
+  var placed;
+  if(ps.idx >= 0 && ps.idx < lu.players.length){
+    lu.players[ps.idx] = { cat: cat, sc: sc, ln: p.ln, fn: p.fn };
+    placed = ps.idx;
+  } else {
+    lu.players.push({ cat: cat, sc: sc, ln: p.ln, fn: p.fn });
+    placed = lu.players.length - 1;
+  }
+  luSave(all);
+  toast(p.ln + ', ' + p.fn + ' \u2192 Spot ' + (placed + 1) + '.');
+  endPick();
+  return true;
+}
+function renderLineups(list){
+  list.appendChild(backLink('All players', function(){ ui.lineups = false; renderPlayers(); }));
+  var ch = document.createElement('div');
+  ch.className = 'catHead';
+  ch.textContent = 'Lineups';
+  list.appendChild(ch);
+  var mk = document.createElement('div');
+  mk.className = 'h1stRow';
+  var mi = document.createElement('input');
+  mi.type = 'text';
+  mi.placeholder = 'New lineup name (e.g. Team USA 18U)';
+  var mb = document.createElement('button');
+  mb.className = 'h1stAdd primary';
+  mb.textContent = 'Create';
+  mb.addEventListener('click', function(){
+    var name = mi.value.trim();
+    if(!name){ toast('Give the lineup a name first.'); return; }
+    var arr = luLoad();
+    for(var i = 0; i < arr.length; i++){
+      if(arr[i].name.toLowerCase() === name.toLowerCase()){ toast('A lineup with that name already exists.'); return; }
+    }
+    var id = String(Date.now());
+    arr.push({ id: id, name: name, players: [] });
+    luSave(arr);
+    ui.lineupId = id;
+    renderPlayers();
+    toast('Lineup created \u2014 search below to add players.');
+  });
+  mk.appendChild(mi);
+  mk.appendChild(mb);
+  list.appendChild(mk);
+  var arr = luLoad();
+  if(!arr.length){
+    var no = document.createElement('div');
+    no.className = 'qhint';
+    no.textContent = 'Build a lineup when players from different schools share a field \u2014 like Team USA. Name it above, then add anyone from your roster in batting order.';
+    list.appendChild(no);
+    return;
+  }
+  arr.forEach(function(lu){
+    list.appendChild(navRow('\u26BE ' + lu.name, (lu.players || []).length + ' \u203A', function(){
+      ui.lineupId = lu.id;
+      renderPlayers();
+    }));
+  });
+}
+function renderLineupEditor(list, r){
+  var lu = luFind(ui.lineupId);
+  if(!lu){ ui.lineupId = null; renderPlayers(); return; }
+  /* slots: players deleted from the roster become empty spots */
+  var changed = false;
+  lu.players = (lu.players || []).map(function(ref){
+    if(!ref) return null;
+    if(resolveRef(ref)) return ref;
+    changed = true;
+    return null;
+  });
+  if(changed){
+    var all0 = luLoad();
+    for(var i0 = 0; i0 < all0.length; i0++){ if(all0[i0].id === lu.id){ all0[i0] = lu; } }
+    luSave(all0);
+  }
+  list.appendChild(backLink('Lineups', function(){ ui.lineupId = null; renderPlayers(); }));
+  var ch = document.createElement('div');
+  ch.className = 'catHead';
+  ch.textContent = lu.name + ' \u00B7 Lineup';
+  list.appendChild(ch);
+  var expL = document.createElement('button');
+  expL.className = 'linkBtn';
+  expL.textContent = 'Export ' + lu.name + ' report';
+  expL.addEventListener('click', function(){
+    var parts = [];
+    (lu.players || []).forEach(function(ref){
+      var r3 = ref ? resolveRef(ref) : null;
+      if(r3) parts.push(buildReport(r3.cat, r3.sc, r3.p));
+    });
+    if(!parts.length){ toast('No players to export yet.'); return; }
+    shareTextFile(lu.name + ' - Reports - ' + todayStr() + '.txt', parts.join('\n\n==============================\n\n'));
+  });
+  list.appendChild(expL);
+  var si = document.createElement('input');
+  si.type = 'text';
+  si.placeholder = 'Search your roster to add a player';
+  si.autocomplete = 'off';
+  list.appendChild(si);
+  var res = document.createElement('div');
+  list.appendChild(res);
+  si.addEventListener('input', function(){
+    var q = si.value.trim().toLowerCase();
+    res.innerHTML = '';
+    if(!q) return;
+    var out = 0;
+    CATS.forEach(function(cat){
+      Object.keys(r[cat] || {}).sort().forEach(function(sc){
+        (r[cat][sc] || []).forEach(function(p){
+          if(out >= 8) return;
+          var inLu = false;
+          lu.players.forEach(function(ref){
+            if(ref && ref.cat === cat && ref.sc === sc && sameName(ref, p)) inLu = true;
+          });
+          if(inLu) return;
+          var hay = (p.ln + ' ' + p.fn + ' ' + p.ln + ', ' + p.fn + ' ' + (p.pos || '') + ' ' + sc).toLowerCase();
+          if(hay.indexOf(q) < 0) return;
+          out++;
+          var row = document.createElement('div');
+          row.className = 'playerRow';
+          var b = document.createElement('button');
+          b.className = 'playerPick';
+          var s1 = document.createElement('span');
+          s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+          var s2 = document.createElement('span');
+          s2.className = 'pOutcome';
+          s2.textContent = sc + ' (' + cat + ')';
+          b.appendChild(s1);
+          b.appendChild(s2);
+          b.addEventListener('click', function(){
+            var all = luLoad();
+            var spot = -1;
+            for(var i = 0; i < all.length; i++){
+              if(all[i].id === lu.id){
+                var arr2 = all[i].players;
+                for(var e = 0; e < arr2.length; e++){
+                  if(!arr2[e]){ spot = e; break; }
+                }
+                if(spot >= 0){ arr2[spot] = { cat: cat, sc: sc, ln: p.ln, fn: p.fn }; }
+                else { arr2.push({ cat: cat, sc: sc, ln: p.ln, fn: p.fn }); spot = arr2.length - 1; }
+              }
+            }
+            luSave(all);
+            renderPlayers();
+            toast(p.ln + ', ' + p.fn + ' \u2192 Spot ' + (spot + 1) + '.');
+          });
+          row.appendChild(b);
+          res.appendChild(row);
+        });
+      });
+    });
+    if(!out){
+      var no = document.createElement('div');
+      no.className = 'qhint';
+      no.textContent = 'No saved players match (or they\u2019re already in this lineup).';
+      res.appendChild(no);
+    }
+  });
+  if(!lu.players.length){
+    var no2 = document.createElement('div');
+    no2.className = 'qhint';
+    no2.textContent = 'No spots yet \u2014 tap \uFF0B Add lineup spot below, or search above to drop a player straight in.';
+    list.appendChild(no2);
+  }
+  lu.players.forEach(function(ref, i){
+    var row = document.createElement('div');
+    row.className = 'playerRow';
+    var idx = document.createElement('div');
+    idx.className = 'clipIdx';
+    idx.textContent = i + 1;
+    row.appendChild(idx);
+    var r2 = ref ? resolveRef(ref) : null;
+    if(r2){
+      var p = r2.p;
+      var b = document.createElement('button');
+      b.className = 'playerPick';
+      var s1 = document.createElement('span');
+      s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+      var s2 = document.createElement('span');
+      s2.className = 'pOutcome';
+      var ol3 = outLine(p.outcome, true);
+      s2.textContent = ref.sc + ' (' + ref.cat + ')' + (ol3 ? '  \u00B7  ' + ol3 : '');
+      b.appendChild(s1);
+      b.appendChild(s2);
+      b.addEventListener('click', function(){
+        openCard(r2.cat, r2.sc, p, 'players', { id: lu.id, idx: i });
+      });
+      row.appendChild(b);
+    } else {
+      var eb = document.createElement('button');
+      eb.className = 'slotBtn';
+      eb.textContent = '\uFF0B Tap to add player';
+      eb.addEventListener('click', function(){ enterPick(lu.id, i, 'players'); });
+      row.appendChild(eb);
+    }
+    var btns = document.createElement('div');
+    btns.className = 'clipBtns';
+    var mkB = function(label, dis, fn2){
+      var bb = document.createElement('button');
+      bb.textContent = label;
+      if(dis) bb.disabled = true;
+      bb.addEventListener('click', fn2);
+      return bb;
+    };
+    var reorder = function(from, to){
+      var all = luLoad();
+      for(var j = 0; j < all.length; j++){
+        if(all[j].id === lu.id){
+          var t = all[j].players[from];
+          all[j].players[from] = all[j].players[to];
+          all[j].players[to] = t;
+        }
+      }
+      luSave(all);
+      renderPlayers();
+    };
+    btns.appendChild(mkB('\u2191', i === 0, function(){ reorder(i, i - 1); }));
+    btns.appendChild(mkB('\u2193', i === lu.players.length - 1, function(){ reorder(i, i + 1); }));
+    btns.appendChild(mkB('\u2715', false, function(){
+      var all = luLoad();
+      for(var j = 0; j < all.length; j++){
+        if(all[j].id === lu.id){ all[j].players.splice(i, 1); }
+      }
+      luSave(all);
+      renderPlayers();
+      toast('Spot removed.');
+    }));
+    row.appendChild(btns);
+    list.appendChild(row);
+  });
+  var addB = document.createElement('button');
+  addB.className = 'addSlot';
+  addB.textContent = '\uFF0B Add lineup spot';
+  addB.addEventListener('click', function(){
+    var all = luLoad();
+    for(var j = 0; j < all.length; j++){
+      if(all[j].id === lu.id){ all[j].players.push(null); }
+    }
+    luSave(all);
+    renderPlayers();
+  });
+  list.appendChild(addB);
+  var delB = document.createElement('button');
+  delB.className = 'linkBtn';
+  delB.textContent = 'Delete this lineup';
+  delB.addEventListener('click', function(){
+    luSave(luLoad().filter(function(x){ return x.id !== lu.id; }));
+    ui.lineupId = null;
+    renderPlayers();
+    toast('Lineup deleted. Players stay on their rosters.');
+  });
+  list.appendChild(delB);
 }
 function renderPref(list, r){
   list.appendChild(backLink('All players', function(){ ui.pref = false; renderPlayers(); }));
@@ -872,11 +1225,13 @@ function renderPref(list, r){
     s1.textContent = e2.p.ln + ', ' + e2.p.fn + (e2.p.pos ? ' \u00B7 ' + e2.p.pos : '');
     var s2 = document.createElement('span');
     s2.className = 'pOutcome';
-    s2.textContent = e2.sc + ' (' + e2.cat + ')  \u00B7  ' + e2.p.outcome.role +
-      (e2.p.outcome.qual ? '-' + e2.p.outcome.qual.toUpperCase() : '');
+    s2.textContent = e2.sc + ' (' + e2.cat + ')  \u00B7  ' + outLine(e2.p.outcome, true);
     b.appendChild(s1);
     b.appendChild(s2);
-    b.addEventListener('click', function(){ openCard(e2.cat, e2.sc, e2.p, 'players'); });
+    b.addEventListener('click', function(){
+      if(assignIfPicking(e2.cat, e2.sc, e2.p)) return;
+      openCard(e2.cat, e2.sc, e2.p, 'players');
+    });
     row.appendChild(idx);
     row.appendChild(b);
     list.appendChild(row);
@@ -887,6 +1242,19 @@ function renderPlayers(){
   var r = rosterLoad();
   var list = $('rosterList');
   list.innerHTML = '';
+  if(ui.pickSlot){
+    var plu = luFind(ui.pickSlot.luId);
+    var bn = document.createElement('div');
+    bn.className = 'pickBanner';
+    var sp = document.createElement('span');
+    sp.textContent = 'Picking for ' + (plu ? plu.name : 'lineup') + ' \u00B7 Spot ' + (ui.pickSlot.idx + 1);
+    var cx = document.createElement('button');
+    cx.textContent = 'Cancel';
+    cx.addEventListener('click', function(){ endPick(); });
+    bn.appendChild(sp);
+    bn.appendChild(cx);
+    list.appendChild(bn);
+  }
   var total = rosterCount(r);
   $('rosterEyebrow').textContent = 'Roster' + (total ? ' \u00B7 ' + total + (total === 1 ? ' player' : ' players') : '');
   $('rosterEmpty').style.display = total ? 'none' : 'block';
@@ -919,6 +1287,10 @@ function renderPlayers(){
   }
 
   if(ui.pref){ renderPref(list, r); return; }
+  if(ui.lineups){
+    if(ui.lineupId){ renderLineupEditor(list, r); } else { renderLineups(list); }
+    return;
+  }
 
   /* level 0: categories */
   if(!ui.cat){
@@ -932,6 +1304,12 @@ function renderPlayers(){
       ui.pref = true;
       renderPlayers();
     }));
+    if(!ui.pickSlot){
+      list.appendChild(navRow('\u26BE LINEUPS', luLoad().length + ' \u203A', function(){
+        ui.lineups = true;
+        renderPlayers();
+      }));
+    }
     CATS.forEach(function(cat){
       var n = 0;
       Object.keys(r[cat] || {}).forEach(function(sc){ n += (r[cat][sc] || []).length; });
@@ -994,12 +1372,17 @@ function renderPlayers(){
     list.appendChild(playerRowEl(cat, sc, p, 'roster', true));
   });
 }
-$('rosterSearch').addEventListener('input', renderPlayers);
+var rsTimer = null;
+$('rosterSearch').addEventListener('input', function(){
+  clearTimeout(rsTimer);
+  rsTimer = setTimeout(renderPlayers, 250);
+});
 
 /* ---------- full-screen player card ---------- */
-function openCard(cat, sc, p, from){
+function openCard(cat, sc, p, from, luNav){
   ui.player = { cat: cat, sc: sc, ln: p.ln, fn: p.fn };
   ui.back = from || 'players';
+  ui.lineupNav = luNav || null;
   showPane('card');
   rerenderCard();
 }
@@ -1021,6 +1404,28 @@ function rerenderCard(){
   t2.textContent = sc + ' \u00B7 ' + cat;
   tt.appendChild(t1);
   tt.appendChild(t2);
+  if(ui.lineupNav){
+    var lu2 = luFind(ui.lineupNav.id);
+    if(lu2 && lu2.players && lu2.players.length){
+      var nav = document.createElement('div');
+      nav.className = 'cardNav';
+      var pb = document.createElement('button');
+      pb.textContent = '\u2039 Prev';
+      pb.addEventListener('click', function(){ stepLineup(-1); });
+      var posEl = document.createElement('div');
+      posEl.className = 'pos';
+      posEl.textContent = (ui.lineupNav.idx + 1) + ' / ' + lu2.players.length;
+      var nb2 = document.createElement('button');
+      nb2.textContent = 'Next \u203A';
+      nb2.addEventListener('click', function(){ stepLineup(1); });
+      nav.appendChild(pb);
+      nav.appendChild(posEl);
+      nav.appendChild(nb2);
+      host.appendChild(nav);
+    } else {
+      ui.lineupNav = null;
+    }
+  }
   host.appendChild(buildCardDOM(cat, sc, p));
 }
 function buildCardDOM(cat, sc, p){
@@ -1135,7 +1540,7 @@ function buildCardDOM(cat, sc, p){
   var mkOutSel = function(opts, field){
     var sel = document.createElement('select');
     var o0 = document.createElement('option');
-    o0.value = ''; o0.textContent = (field === 'role') ? '\u2014 Role' : '\u2014 Quality';
+    o0.value = ''; o0.textContent = (field === 'role') ? 'Role' : (field === 'qual' ? 'Qual' : 'Value');
     sel.appendChild(o0);
     opts.forEach(function(t3){
       var o = document.createElement('option');
@@ -1148,7 +1553,7 @@ function buildCardDOM(cat, sc, p){
       sel.classList.toggle('graded', !!sel.value);
       var val = sel.value;
       saveToPlayer(cat, sc, p, function(x){
-        x.outcome = x.outcome || { role: '', qual: '' };
+        x.outcome = x.outcome || { role: '', qual: '', val: '' };
         x.outcome[field] = val;
       });
     });
@@ -1159,6 +1564,7 @@ function buildCardDOM(cat, sc, p){
   oRow.className = 'outcomeRow';
   oRow.appendChild(mkOutSel(ROLE_OPTS, 'role'));
   oRow.appendChild(mkOutSel(QUAL_OPTS, 'qual'));
+  oRow.appendChild(mkOutSel(VALUE_OPTS, 'val'));
   card.appendChild(oRow);
 
   if(showPitch){
@@ -1365,6 +1771,18 @@ function buildCardDOM(cat, sc, p){
       if(!src.length) delete r2[cat][sc];
       r2[mCat][ns].push(moved);
       rosterSave(r2);
+      var lus2 = luLoad();
+      var chg = false;
+      lus2.forEach(function(L2){
+        (L2.players || []).forEach(function(ref){
+          if(ref && ref.cat === cat && ref.sc === sc && sameName(ref, p)){
+            ref.cat = mCat;
+            ref.sc = ns;
+            chg = true;
+          }
+        });
+      });
+      if(chg) luSave(lus2);
       moveOpen[k] = false;
       ui.player = { cat: mCat, sc: ns, ln: p.ln, fn: p.fn };
       if(ui.school === sc && ui.cat === cat) ui.school = null;
@@ -1405,6 +1823,18 @@ function muFill(sel, val){
     });
     sel.appendChild(og);
   });
+  var lus = luLoad();
+  if(lus.length){
+    var og2 = document.createElement('optgroup');
+    og2.label = 'Lineups';
+    lus.forEach(function(lu){
+      var o = document.createElement('option');
+      o.value = 'LU|' + lu.id;
+      o.textContent = '\u26BE ' + lu.name;
+      og2.appendChild(o);
+    });
+    sel.appendChild(og2);
+  }
   sel.value = val || '';
   if(sel.value !== (val || '')) sel.value = '';
 }
@@ -1419,6 +1849,95 @@ function muColEl(side){
     return col;
   }
   var parts = side.split('|');
+  if(parts[0] === 'LU'){
+    var luId = parts.slice(1).join('|');
+    var lu = luFind(luId);
+    if(!lu){
+      var noL = document.createElement('div');
+      noL.className = 'qhint';
+      noL.textContent = 'That lineup was deleted.';
+      col.appendChild(noL);
+      return col;
+    }
+    var hdL = document.createElement('div');
+    hdL.className = 'muHead';
+    hdL.textContent = lu.name;
+    col.appendChild(hdL);
+    if(!(lu.players || []).length){
+      var noP = document.createElement('div');
+      noP.className = 'qhint';
+      noP.textContent = 'No spots yet \u2014 tap \uFF0B below.';
+      col.appendChild(noP);
+    }
+    (lu.players || []).forEach(function(ref, i){
+      var row = document.createElement('div');
+      row.className = 'muRow';
+      var r2 = ref ? resolveRef(ref) : null;
+      if(r2){
+        var p = r2.p;
+        var nb = document.createElement('button');
+        nb.className = 'playerPick muName';
+        var s1 = document.createElement('span');
+        s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+        nb.appendChild(s1);
+        var mol = outLine(p.outcome, true);
+        if(mol){
+          var s2 = document.createElement('span');
+          s2.className = 'pOutcome';
+          s2.textContent = mol;
+          nb.appendChild(s2);
+        }
+        nb.addEventListener('click', function(){
+          loadPlayerToVideo(r2.cat, r2.sc, p);
+          showPane('video');
+        });
+        var cb = document.createElement('button');
+        cb.className = 'notesBtn';
+        cb.textContent = '\uD83D\uDCDD';
+        if(hasCard(p)) cb.classList.add('has');
+        cb.addEventListener('click', function(){
+          openCard(r2.cat, r2.sc, p, 'matchup', { id: lu.id, idx: i });
+        });
+        var xb = document.createElement('button');
+        xb.className = 'muDel';
+        xb.textContent = '\u2715';
+        xb.setAttribute('aria-label', 'Remove player from this spot');
+        xb.addEventListener('click', function(){
+          if(!window.confirm('Remove ' + p.ln + ', ' + p.fn + ' from Spot ' + (i + 1) + '?')) return;
+          var all2 = luLoad();
+          for(var j2 = 0; j2 < all2.length; j2++){
+            if(all2[j2].id === lu.id){ all2[j2].players[i] = null; }
+          }
+          luSave(all2);
+          renderMatchup();
+          toast('Spot ' + (i + 1) + ' opened up.');
+        });
+        row.appendChild(xb);
+        row.appendChild(nb);
+        row.appendChild(cb);
+      } else {
+        var eb = document.createElement('button');
+        eb.className = 'slotBtn muName';
+        eb.textContent = '\uFF0B Spot ' + (i + 1);
+        eb.addEventListener('click', function(){ enterPick(lu.id, i, 'matchup'); });
+        row.appendChild(eb);
+      }
+      col.appendChild(row);
+    });
+    var addB = document.createElement('button');
+    addB.className = 'addSlot';
+    addB.textContent = '\uFF0B Add spot';
+    addB.addEventListener('click', function(){
+      var all = luLoad();
+      for(var j = 0; j < all.length; j++){
+        if(all[j].id === lu.id){ all[j].players.push(null); }
+      }
+      luSave(all);
+      renderMatchup();
+    });
+    col.appendChild(addB);
+    return col;
+  }
   var cat = parts[0], sc = parts.slice(1).join('|');
   var r = rosterLoad();
   var players = (r[cat] || {})[sc] || [];
@@ -1441,10 +1960,11 @@ function muColEl(side){
     var s1 = document.createElement('span');
     s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
     nb.appendChild(s1);
-    if(p.outcome && (p.outcome.role || p.outcome.qual)){
+    var mol = outLine(p.outcome, true);
+    if(mol){
       var s2 = document.createElement('span');
       s2.className = 'pOutcome';
-      s2.textContent = (p.outcome.role || '') + (p.outcome.role && p.outcome.qual ? '-' : '') + (p.outcome.qual || '').toUpperCase();
+      s2.textContent = mol;
       nb.appendChild(s2);
     }
     nb.addEventListener('click', function(){
@@ -1519,7 +2039,7 @@ $('saveRosterBtn').addEventListener('click', function(){
     hit.pos = ps;
     toast('Updated ' + (ln || fn) + ' on the roster.');
   } else {
-    r[curCat][sc].push({ ln: ln, fn: fn, pos: ps, notes: '', grades: {}, h1st: [], velos: {}, outcome: { role: '', qual: '' }, ptype: '', bio: { ht: '', wt: '', bt: '' } });
+    r[curCat][sc].push({ ln: ln, fn: fn, pos: ps, notes: '', grades: {}, h1st: [], velos: {}, outcome: { role: '', qual: '', val: '' }, ptype: '', bio: { ht: '', wt: '', bt: '' } });
     toast('Saved to ' + sc + ' (' + curCat + ').');
   }
   rosterOpen[curCat + '|' + sc] = true;
@@ -1530,7 +2050,7 @@ $('saveRosterBtn').addEventListener('click', function(){
 $('backupBtn').addEventListener('click', function(){
   var r = rosterLoad();
   if(!rosterCount(r)){ toast('Roster is empty \u2014 nothing to back up yet.'); return; }
-  var data = JSON.stringify({ app: 'dodger-scouting', v: 2, exported: new Date().toISOString(), roster: r });
+  var data = JSON.stringify({ app: 'dodger-scouting', v: 3, exported: new Date().toISOString(), roster: r, lineups: luLoad() });
   var blob = new Blob([data], { type: 'application/json' });
   var fname = 'dodger-scouting-roster.json';
   var markDone = function(){ lsSet('ds_backupHash', rosterHash()); updateBackupNag(); toast('Roster backed up.'); };
@@ -1549,6 +2069,44 @@ $('backupBtn').addEventListener('click', function(){
   }
 });
 $('restoreBtn').addEventListener('click', function(){ $('restoreInput').click(); });
+$('csvBtn').addEventListener('click', function(){
+  var r = rosterLoad();
+  if(!rosterCount(r)){ toast('Roster is empty \u2014 nothing to export yet.'); return; }
+  var esc = function(v){
+    v = String(v == null ? '' : v);
+    if(/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  };
+  var head2 = ['Category','School','Last','First','POS','Type','HT','WT','B-T','Role','Quality','Value'];
+  PITCH_KEYS.forEach(function(k2){ head2.push('P ' + k2 + ' (P)'); head2.push('P ' + k2 + ' (F)'); });
+  HIT_KEYS.forEach(function(k2){ head2.push('H ' + k2 + ' (P)'); head2.push('H ' + k2 + ' (F)'); });
+  VELO_KEYS.forEach(function(k2){ head2.push(k2 + ' VELO'); head2.push(k2 + ' AVG'); });
+  head2.push('H1ST');
+  var lines = [head2.map(esc).join(',')];
+  CATS.forEach(function(cat){
+    Object.keys(r[cat] || {}).sort().forEach(function(sc){
+      (r[cat][sc] || []).forEach(function(p){
+        var b = p.bio || {}, o = p.outcome || {};
+        var row = [cat, sc, p.ln, p.fn, p.pos || '', p.ptype || '', b.ht || '', b.wt || '', b.bt || '', o.role || '', o.qual || '', o.val || ''];
+        PITCH_KEYS.forEach(function(k2){
+          var g = (p.grades || {})['P_' + k2] || {};
+          row.push(g.p || ''); row.push(g.f || '');
+        });
+        HIT_KEYS.forEach(function(k2){
+          var g = (p.grades || {})['H_' + k2] || {};
+          row.push(g.p || ''); row.push(g.f || '');
+        });
+        VELO_KEYS.forEach(function(k2){
+          var v = (p.velos || {})[k2] || {};
+          row.push(v.range || ''); row.push(v.avg || '');
+        });
+        row.push((p.h1st || []).join('; '));
+        lines.push(row.map(esc).join(','));
+      });
+    });
+  });
+  shareTextFile('Dodger Scouting - Roster - ' + todayStr() + '.csv', lines.join('\r\n'), 'text/csv');
+});
 $('restoreInput').addEventListener('change', function(e){
   var f = e.target.files && e.target.files[0];
   e.target.value = '';
@@ -1582,10 +2140,11 @@ $('restoreInput').addEventListener('change', function(e){
                 if(v.p) hit.grades[gk].p = v.p;
                 if(v.f) hit.grades[gk].f = v.f;
               });
-              hit.outcome = hit.outcome || { role: '', qual: '' };
+              hit.outcome = hit.outcome || { role: '', qual: '', val: '' };
               if(p.outcome){
                 if(p.outcome.role) hit.outcome.role = p.outcome.role;
                 if(p.outcome.qual) hit.outcome.qual = p.outcome.qual;
+                if(p.outcome.val) hit.outcome.val = p.outcome.val;
               }
               if(p.ptype) hit.ptype = p.ptype;
               hit.bio = hit.bio || { ht: '', wt: '', bt: '' };
@@ -1605,13 +2164,30 @@ $('restoreInput').addEventListener('change', function(e){
               });
               updated++;
             } else {
-              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' } }));
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' } }));
               added++;
             }
           });
         });
       });
       rosterSave(r);
+      if(obj && obj.lineups && obj.lineups.length){
+        var curLu = luLoad();
+        obj.lineups.forEach(function(inc){
+          if(!inc || !inc.name) return;
+          var exists = false;
+          curLu.forEach(function(x){ if(x.name.toLowerCase() === inc.name.toLowerCase()) exists = true; });
+          if(exists) return;
+          curLu.push({
+            id: String(inc.id || (Date.now() + Math.floor(Math.random() * 100000))),
+            name: inc.name,
+            players: (inc.players || []).map(function(ref){
+              return ref ? { cat: ref.cat, sc: ref.sc, ln: ref.ln || '', fn: ref.fn || '' } : null;
+            })
+          });
+        });
+        luSave(curLu);
+      }
       renderRoster();
       toast('Roster restored \u2014 ' + added + ' added, ' + updated + ' updated.');
     }catch(err){
@@ -1885,6 +2461,17 @@ $('camFlip').addEventListener('click', function(){
   openCamera();
 });
 
+var audioPref = (lsGet('ds_audio') === 'on') ? 'on' : 'off';
+function setAudio(a){
+  audioPref = a;
+  lsSet('ds_audio', a);
+  $('audOff').classList.toggle('sel', a === 'off');
+  $('audOn').classList.toggle('sel', a === 'on');
+}
+$('audOff').addEventListener('click', function(){ setAudio('off'); });
+$('audOn').addEventListener('click', function(){ setAudio('on'); });
+setAudio(audioPref);
+
 /* ---------- build ---------- */
 $('createBtn').addEventListener('click', function(){
   if(busy) return;
@@ -1956,9 +2543,13 @@ function startRender(){
       window.scrollTo(0, 0);
 
       var stream = stage.captureStream(quality === 'max' ? 30 : 60);
-      dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+      if(audioPref === 'on'){
+        dest.stream.getAudioTracks().forEach(function(t){ stream.addTrack(t); });
+      }
 
-      var cands = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+      var cands = (audioPref === 'on')
+        ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm']
+        : ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
       var mime = '';
       for(var i = 0; i < cands.length; i++){
         if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(cands[i])){ mime = cands[i]; break; }
