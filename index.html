@@ -234,6 +234,13 @@
   #camShutter::after{content:''; position:absolute; inset:7px; background:var(--red);
     border-radius:50%; transition:border-radius .15s, inset .15s;}
   #camShutter.rec::after{inset:20px; border-radius:6px;}
+  #camZoomRow{position:fixed; left:0; right:0; bottom:calc(128px + env(safe-area-inset-bottom));
+    display:flex; gap:8px; justify-content:center; align-items:center; z-index:3;}
+  #camZoomRow.hidden{display:none;}
+  .zChip{min-height:38px; padding:8px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.4);
+    background:rgba(0,0,0,.45); color:#fff; font-weight:800; font-size:14px;}
+  #camZoomVal{color:#fff; font-weight:800; font-size:13px; background:rgba(0,0,0,.45);
+    border-radius:999px; padding:8px 12px; min-width:52px; text-align:center;}
 
   @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 </style>
@@ -324,7 +331,7 @@
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
-  <p class="fine">Dodger Scouting v15</p>
+  <p class="fine">Dodger Scouting v17</p>
 </div>
 
 <div id="panePlayers" class="hidden">
@@ -385,6 +392,12 @@
 <div id="camView" class="overlay hidden">
   <video id="camPreview" autoplay playsinline muted></video>
   <div class="camTop"><span id="camTimer"><i></i><span id="camClock">0:00</span></span></div>
+  <div id="camZoomRow" class="hidden">
+    <button class="zChip" data-z="1">1×</button>
+    <button class="zChip" data-z="2">2×</button>
+    <button class="zChip" data-z="3">3×</button>
+    <span id="camZoomVal">1.0×</span>
+  </div>
   <div class="camControls">
     <button id="camFlip" class="camBtn">Flip</button>
     <button id="camShutter" aria-label="Start or stop recording"></button>
@@ -864,7 +877,18 @@ function playerRowEl(cat, sc, p, from, withDelete){
 }
 /* ---------- lineups ---------- */
 function luLoad(){
-  try{ return JSON.parse(lsGet('ds_lineups') || '[]') || []; }catch(e){ return []; }
+  var arr;
+  try{ arr = JSON.parse(lsGet('ds_lineups') || '[]') || []; }catch(e){ return []; }
+  var seen = {}, changed = false;
+  arr.forEach(function(l){
+    if(!l.id || seen[l.id]){
+      l.id = 'lu-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+      changed = true;
+    }
+    seen[l.id] = 1;
+  });
+  if(changed) luSave(arr);
+  return arr;
 }
 function luSave(arr){ lsSet('ds_lineups', JSON.stringify(arr)); }
 function luFind(id){
@@ -1842,7 +1866,7 @@ function muFill(sel, val){
   sel.value = val || '';
   if(sel.value !== (val || '')) sel.value = '';
 }
-function muColEl(side){
+function muColEl(side, slot){
   var col = document.createElement('div');
   col.className = 'muCol';
   if(!side){
@@ -1867,12 +1891,12 @@ function muColEl(side){
     hdL.className = 'muHead';
     hdL.textContent = lu.name;
     col.appendChild(hdL);
-    var om = !!muOrderMode[side];
+    var om = !!muOrderMode[slot + '|' + side];
     var ordL = document.createElement('button');
     ordL.className = 'linkBtn muOrderLink';
     ordL.textContent = om ? 'Done reordering' : 'Reorder';
     ordL.addEventListener('click', function(){
-      muOrderMode[side] = !muOrderMode[side];
+      muOrderMode[slot + '|' + side] = !muOrderMode[slot + '|' + side];
       renderMatchup();
     });
     col.appendChild(ordL);
@@ -1883,6 +1907,7 @@ function muColEl(side){
           var t3 = all3[j3].players[from];
           all3[j3].players[from] = all3[j3].players[to];
           all3[j3].players[to] = t3;
+          break;
         }
       }
       luSave(all3);
@@ -1959,7 +1984,7 @@ function muColEl(side){
           if(!window.confirm('Remove ' + p.ln + ', ' + p.fn + ' from Spot ' + (i + 1) + '?')) return;
           var all2 = luLoad();
           for(var j2 = 0; j2 < all2.length; j2++){
-            if(all2[j2].id === lu.id){ all2[j2].players[i] = null; }
+            if(all2[j2].id === lu.id){ all2[j2].players[i] = null; break; }
           }
           luSave(all2);
           renderMatchup();
@@ -1983,7 +2008,7 @@ function muColEl(side){
     addB.addEventListener('click', function(){
       var all = luLoad();
       for(var j = 0; j < all.length; j++){
-        if(all[j].id === lu.id){ all[j].players.push(null); }
+        if(all[j].id === lu.id){ all[j].players.push(null); break; }
       }
       luSave(all);
       renderMatchup();
@@ -2050,8 +2075,8 @@ function renderMatchup(){
   }
   var grid = document.createElement('div');
   grid.className = 'muGrid';
-  grid.appendChild(muColEl(m.a));
-  grid.appendChild(muColEl(m.b));
+  grid.appendChild(muColEl(m.a, 'a'));
+  grid.appendChild(muColEl(m.b, 'b'));
   cols.appendChild(grid);
 }
 $('muA').addEventListener('change', function(){
@@ -2231,8 +2256,10 @@ $('restoreInput').addEventListener('change', function(e){
           var exists = false;
           curLu.forEach(function(x){ if(x.name.toLowerCase() === inc.name.toLowerCase()) exists = true; });
           if(exists) return;
+          var incId = String(inc.id || '');
+          curLu.forEach(function(x){ if(x.id === incId) incId = ''; });
           curLu.push({
-            id: String(inc.id || (Date.now() + Math.floor(Math.random() * 100000))),
+            id: incId || ('lu-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)),
             name: inc.name,
             players: (inc.players || []).map(function(ref){
               return ref ? { cat: ref.cat, sc: ref.sc, ln: ref.ln || '', fn: ref.fn || '' } : null;
@@ -2408,6 +2435,65 @@ if(lsGet('ds_quality') === 'max') setQual('max');
 /* ---------- in-app camera ---------- */
 var camStream = null, camRec = null, camChunks = [], camRecording = false;
 var camFacing = 'environment', camTimerInt = null, camT0 = 0, camWake = null, camCloseAfter = false;
+var camZ = { track: null, min: 1, max: 1, cur: 1, last: 0 };
+
+function camApplyZoom(z){
+  if(!camZ.track) return;
+  z = Math.max(camZ.min, Math.min(camZ.max, z));
+  camZ.cur = z;
+  $('camZoomVal').textContent = (Math.round(z * 10) / 10) + '\u00D7';
+  var now = performance.now();
+  if(now - camZ.last < 80) return;
+  camZ.last = now;
+  camZ.track.applyConstraints({ advanced: [{ zoom: z }] }).catch(function(){});
+}
+function camSetupZoom(stream){
+  camZ.track = null;
+  var row = $('camZoomRow');
+  try{
+    var tr = stream.getVideoTracks()[0];
+    var caps = tr.getCapabilities ? tr.getCapabilities() : {};
+    if(caps && caps.zoom && typeof caps.zoom.max === 'number' && caps.zoom.max > (caps.zoom.min || 1)){
+      camZ.track = tr;
+      camZ.min = caps.zoom.min || 1;
+      camZ.max = caps.zoom.max;
+      var st = tr.getSettings ? (tr.getSettings() || {}) : {};
+      camZ.cur = st.zoom || camZ.min;
+      camZ.last = 0;
+      $('camZoomVal').textContent = (Math.round(camZ.cur * 10) / 10) + '\u00D7';
+      row.classList.remove('hidden');
+      return;
+    }
+  }catch(e){}
+  row.classList.add('hidden');
+}
+document.querySelectorAll('.zChip').forEach(function(ch){
+  ch.addEventListener('click', function(){
+    camZ.last = 0;
+    camApplyZoom(parseFloat(ch.getAttribute('data-z')));
+  });
+});
+(function(){
+  var pv = $('camPreview');
+  var pinchStart = 0, pinchZoom = 1;
+  var dist = function(t){
+    var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+  pv.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2 && camZ.track){
+      pinchStart = dist(e.touches);
+      pinchZoom = camZ.cur;
+    }
+  }, { passive: true });
+  pv.addEventListener('touchmove', function(e){
+    if(e.touches.length === 2 && camZ.track && pinchStart){
+      e.preventDefault();
+      camApplyZoom(pinchZoom * (dist(e.touches) / pinchStart));
+    }
+  }, { passive: false });
+  pv.addEventListener('touchend', function(){ pinchStart = 0; }, { passive: true });
+})();
 
 function openCamera(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
@@ -2424,6 +2510,7 @@ function openCamera(){
     pv.classList.toggle('mirror', camFacing === 'user');
     var pp = pv.play();
     if(pp && pp.catch) pp.catch(function(){});
+    camSetupZoom(stream);
     $('camView').classList.remove('hidden');
     if(navigator.wakeLock && navigator.wakeLock.request){
       navigator.wakeLock.request('screen').then(function(l){ camWake = l; }).catch(function(){});
