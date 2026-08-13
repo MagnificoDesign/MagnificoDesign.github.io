@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dodger Scouting — Recovery</title>
+<style>
+  :root{ --blue:#005A9C; --ink:#14243a; --line:#D8E3ED; --red:#D22030; --green:#12813F; }
+  *{ box-sizing:border-box; -webkit-text-size-adjust:100%; }
+  body{ margin:0; padding:18px 16px 60px; background:#F4F8FB; color:var(--ink);
+    font:15px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  @media (min-width:700px){ body{ max-width:760px; margin:0 auto; } }
+  h1{ font-size:19px; margin:0 0 4px; }
+  .sub{ color:#5b6b7a; font-size:13px; margin-bottom:16px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .card h2{ font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:#8494a3; margin:0 0 10px; }
+  .row{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid #EEF3F8; font-size:14px; }
+  .row:last-child{ border-bottom:0; }
+  .row b{ font-weight:600; }
+  .good{ color:var(--green); font-weight:700; }
+  .bad{ color:var(--red); font-weight:700; }
+  button{ width:100%; min-height:50px; margin-top:10px; border-radius:11px; font-size:15px; font-weight:600;
+    border:1px solid var(--line); background:#fff; color:var(--ink); -webkit-appearance:none; }
+  button.primary{ background:var(--blue); border-color:var(--blue); color:#fff; }
+  button:disabled{ opacity:.45; }
+  pre{ background:#F7FAFD; border:1px solid var(--line); border-radius:9px; padding:10px;
+    font-size:11.5px; overflow:auto; max-height:260px; white-space:pre-wrap; word-break:break-word; }
+  .note{ font-size:12.5px; color:#5b6b7a; margin-top:8px; }
+  .warn{ background:#FFF6E5; border-color:#E8C889; }
+</style>
+</head>
+<body>
+<h1>Dodger Scouting — Recovery</h1>
+<div class="sub">Read-only. This page never deletes or changes anything — it only looks and exports.</div>
+
+<div class="card" id="scanCard">
+  <h2>What's on this device</h2>
+  <div id="scan">Scanning…</div>
+</div>
+
+<div class="card">
+  <h2>Best available data</h2>
+  <div id="best">—</div>
+  <button class="primary" id="dlBest" disabled>Download the best copy found</button>
+  <button id="dlAll" disabled>Download everything (raw, for Claude)</button>
+  <div class="note">Send the raw file to Claude if anything looks wrong — it contains every version found in every storage location.</div>
+</div>
+
+<div class="card">
+  <h2>Detail</h2>
+  <pre id="detail">—</pre>
+</div>
+
+<script>
+var out = {}, sources = {};
+
+function esc(s){ return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+function kb(n){ return n < 1024 ? n + ' B' : (n < 1048576 ? Math.round(n/1024) + ' KB' : (n/1048576).toFixed(1) + ' MB'); }
+
+/* count what actually matters: players, notes, ink strokes, banked looks */
+function summarize(rosterStr){
+  var s = { players:0, withNotes:0, inkStrokes:0, inkPlayers:0, banked:0, bad:false };
+  try{
+    var r = JSON.parse(rosterStr);
+    ['HS','NCAA','JC','OTHER'].forEach(function(cat){
+      var schools = r[cat] || {};
+      Object.keys(schools).forEach(function(sc){
+        (schools[sc] || []).forEach(function(p){
+          s.players++;
+          if((p.notes||'').trim()) s.withNotes++;
+          var n = (p.ink||[]).length;
+          if(n){ s.inkPlayers++; s.inkStrokes += n; }
+          (p.banked||[]).forEach(function(b){
+            s.banked++;
+            s.inkStrokes += (b.ink||[]).length;
+          });
+        });
+      });
+    });
+  }catch(e){ s.bad = true; }
+  return s;
+}
+
+function readLocalStorage(){
+  var found = {};
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k = localStorage.key(i);
+      if(k && k.indexOf('ds_')===0) found[k] = localStorage.getItem(k);
+    }
+  }catch(e){}
+  return found;
+}
+
+function readIDB(dbName){
+  return new Promise(function(res){
+    var req;
+    try{ req = indexedDB.open(dbName); }catch(e){ return res({}); }
+    req.onerror = function(){ res({}); };
+    req.onsuccess = function(){
+      var db = req.result, found = {};
+      if(!db.objectStoreNames.contains('kv')){ db.close(); return res({}); }
+      try{
+        var tx = db.transaction('kv','readonly'), os = tx.objectStore('kv');
+        var kr = os.getAllKeys(), vr = os.getAll(), done = 0, K=null, V=null;
+        var fin = function(){
+          if(++done<2) return;
+          if(K&&V) for(var i=0;i<K.length;i++) found[K[i]] = V[i];
+          db.close(); res(found);
+        };
+        kr.onsuccess=function(){K=kr.result;fin();}; kr.onerror=fin;
+        vr.onsuccess=function(){V=vr.result;fin();}; vr.onerror=fin;
+      }catch(e){ res({}); }
+    };
+  });
+}
+
+function render(){
+  var html = '', best = null, bestScore = -1, bestName = '';
+  Object.keys(sources).forEach(function(name){
+    var data = sources[name];
+    var keys = Object.keys(data);
+    var roster = data['ds_roster2'];
+    if(!keys.length){
+      html += '<div class="row"><span>'+esc(name)+'</span><b>empty</b></div>';
+      return;
+    }
+    if(!roster){
+      html += '<div class="row"><span>'+esc(name)+'</span><b>'+keys.length+' keys, no roster</b></div>';
+      return;
+    }
+    var s = summarize(roster);
+    /* score favours the copy with the most actual work in it */
+    var score = s.players + s.withNotes*5 + s.inkStrokes*3 + s.banked*10;
+    if(score > bestScore){ bestScore = score; best = data; bestName = name; }
+    html += '<div class="row"><span>'+esc(name)+'<br><span style="font-size:12px;color:#8494a3">'+
+      kb(roster.length*2)+'</span></span><b>'+
+      s.players+' players · '+s.withNotes+' with notes<br>'+
+      s.inkStrokes+' ink strokes on '+s.inkPlayers+' players<br>'+
+      s.banked+' banked looks</b></div>';
+  });
+  document.getElementById('scan').innerHTML = html || 'Nothing found.';
+
+  if(best){
+    var s = summarize(best['ds_roster2']);
+    document.getElementById('best').innerHTML =
+      '<div class="row"><span>Source</span><b class="good">'+esc(bestName)+'</b></div>'+
+      '<div class="row"><span>Players</span><b>'+s.players+'</b></div>'+
+      '<div class="row"><span>Players with typed notes</span><b>'+s.withNotes+'</b></div>'+
+      '<div class="row"><span>Handwriting strokes</span><b>'+s.inkStrokes+'</b></div>'+
+      '<div class="row"><span>Banked evaluations</span><b>'+s.banked+'</b></div>';
+    var bb = document.getElementById('dlBest');
+    bb.disabled = false;
+    bb.onclick = function(){
+      var payload = { app:'dodger-scouting', v:3, exported:new Date().toISOString(),
+        recoveredFrom:bestName,
+        roster: JSON.parse(best['ds_roster2']),
+        lineups: best['ds_lineups'] ? JSON.parse(best['ds_lineups']) : [] };
+      dl('Dodge Scout RECOVERED.json', JSON.stringify(payload));
+    };
+  }
+  var ab = document.getElementById('dlAll');
+  ab.disabled = false;
+  ab.onclick = function(){ dl('Dodge Scout RAW ALL SOURCES.json', JSON.stringify(sources)); };
+
+  var det = '';
+  Object.keys(sources).forEach(function(name){
+    det += '=== ' + name + ' ===\n';
+    Object.keys(sources[name]).forEach(function(k){
+      det += '  ' + k + '  (' + kb(String(sources[name][k]||'').length*2) + ')\n';
+    });
+    if(!Object.keys(sources[name]).length) det += '  (empty)\n';
+  });
+  document.getElementById('detail').textContent = det;
+}
+
+function dl(name, text){
+  var blob = new Blob([text], {type:'application/json'});
+  var f = null;
+  try{ f = new File([blob], name, {type:'application/json'}); }catch(e){}
+  if(f && navigator.canShare && navigator.share && navigator.canShare({files:[f]})){
+    navigator.share({files:[f], title:name}).catch(function(){});
+  } else {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+}
+
+(async function(){
+  sources['localStorage'] = readLocalStorage();
+  sources['IndexedDB (dodgerScouting)'] = await readIDB('dodgerScouting');
+  /* look for any other databases this device may hold */
+  try{
+    if(indexedDB.databases){
+      var dbs = await indexedDB.databases();
+      for(var i=0;i<dbs.length;i++){
+        var n = dbs[i].name;
+        if(n && n !== 'dodgerScouting'){
+          var got = await readIDB(n);
+          if(Object.keys(got).length) sources['IndexedDB ('+n+')'] = got;
+        }
+      }
+    }
+  }catch(e){}
+  render();
+})();
+</script>
+</body>
+</html>
