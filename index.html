@@ -179,6 +179,10 @@
     background:#fff; color:var(--ink); font-size:14px; text-align:center; padding:6px;
     font-family:inherit; -webkit-appearance:none; appearance:none;}
   .gradeCell input.vfilled{color:var(--blue-deep); font-weight:700; border-color:var(--blue);}
+  .saveDot{position:fixed; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:9998;
+    display:none; padding:7px 12px; border-radius:99px; font-size:12.5px; font-weight:700;
+    background:#EAF3FB; color:var(--blue); border:1px solid var(--line); box-shadow:0 3px 10px rgba(0,0,0,.10);}
+  .saveDot.error{background:#FDECEE; color:var(--red); border-color:#F3BFC5;}
   #storeBar{height:7px; border-radius:99px; background:#E6EEF6; margin-top:12px; overflow:hidden;}
   #storeFill{height:100%; width:0; border-radius:99px; background:var(--blue); transition:width .3s;}
   #storeTxt{font-size:12.5px; color:#5b6b7a; margin-top:5px;}
@@ -529,6 +533,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="saveDot" class="saveDot"></div>
 
 <script type="text/plain" id="appSrc">
 window.onerror = function(msg, src, line){
@@ -577,14 +582,73 @@ function FONT(weight, px){
   return weight + ' ' + px + "px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
 }
 var DSC = window.__DSCACHE || {};
-function idbPut(k, v){
-  var db = window.__DSDB;
-  if(!db) return;
-  try{
-    var tx = db.transaction('kv', 'readwrite');
-    tx.objectStore('kv').put(v, k);
-  }catch(e){}
+/* Writes are coalesced: rapid strokes mark the key dirty instead of firing a
+   1MB transaction each time. Every write is confirmed, retried on failure, and
+   force-flushed when the app is backgrounded or closed. */
+var dsDirty = {}, dsTimer = null, dsInFlight = false;
+var dsSaveState = 'idle';
+function dsSetState(s){
+  dsSaveState = s;
+  var el = document.getElementById('saveDot');
+  if(!el) return;
+  el.className = 'saveDot ' + s;
+  el.textContent = s === 'saving' ? 'Saving\u2026' : (s === 'error' ? 'NOT SAVED \u2014 retrying' : 'Saved');
+  el.style.display = (s === 'idle') ? 'none' : 'block';
 }
+function dsFlush(sync){
+  var keys = Object.keys(dsDirty);
+  if(!keys.length || dsInFlight) return;
+  var db = window.__DSDB;
+  if(!db){ return; }
+  dsInFlight = true;
+  dsSetState('saving');
+  var batch = keys.slice();
+  keys.forEach(function(k){ delete dsDirty[k]; });
+  var tx;
+  try{ tx = db.transaction('kv', 'readwrite'); }
+  catch(e){
+    dsInFlight = false;
+    batch.forEach(function(k){ dsDirty[k] = 1; });
+    dsSetState('error');
+    setTimeout(function(){ dsFlush(); }, 900);
+    return;
+  }
+  var os = tx.objectStore('kv');
+  batch.forEach(function(k){
+    try{ os.put(DSC[k], k); }catch(e){}
+  });
+  tx.oncomplete = function(){
+    dsInFlight = false;
+    dsSetState(Object.keys(dsDirty).length ? 'saving' : 'idle');
+    /* the write landed \u2014 the journal is no longer needed */
+    if(!Object.keys(dsDirty).length){
+      try{ localStorage.removeItem('ds_journal'); }catch(e){}
+    }
+    if(Object.keys(dsDirty).length) dsFlush();
+  };
+  tx.onerror = tx.onabort = function(){
+    dsInFlight = false;
+    batch.forEach(function(k){ dsDirty[k] = 1; });
+    dsSetState('error');
+    setTimeout(function(){ dsFlush(); }, 900);
+  };
+}
+function idbPut(k, v){
+  if(!window.__DSDB) return;
+  dsDirty[k] = 1;
+  if(dsTimer) clearTimeout(dsTimer);
+  dsTimer = setTimeout(function(){ dsTimer = null; dsFlush(); }, 220);
+}
+/* never leave a pending write behind */
+['pagehide', 'beforeunload', 'blur'].forEach(function(ev){
+  window.addEventListener(ev, function(){ if(dsTimer){ clearTimeout(dsTimer); dsTimer = null; } dsFlush(true); });
+});
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){
+    if(dsTimer){ clearTimeout(dsTimer); dsTimer = null; }
+    dsFlush(true);
+  }
+});
 /* Some environments (in-app previews, some PWA shells) silently block window.confirm,
    which made destructive actions look broken. Ask inside the app instead. */
 function askConfirm(msg, onYes, yesLabel){
@@ -2736,8 +2800,16 @@ function buildCardDOM(cat, sc, p){
     });
   };
   var saveInk = function(){
+    var snap = strokes.map(function(s){ return { w: s.w, c: s.c || '#14243a', pts: s.pts.slice() }; });
+    /* Crash journal: small, synchronous, written before anything else. If the app
+       is killed before the main save commits, this is replayed on next launch. */
+    try{
+      localStorage.setItem('ds_journal', JSON.stringify({
+        cat: cat, sc: sc, ln: p.ln, fn: p.fn, ink: snap, inkH: inkH, ts: Date.now()
+      }));
+    }catch(e){}
     saveToPlayer(cat, sc, p, function(x){
-      x.ink = strokes.map(function(s){ return { w: s.w, c: s.c || '#14243a', pts: s.pts.slice() }; });
+      x.ink = snap;
       x.inkH = inkH;
     });
     p.ink = strokes; p.inkH = inkH;
@@ -3963,6 +4035,14 @@ function renderRoster(){
   if(ui.pane === 'card') rerenderCard();
   updateBackupNag();
 }
+if(window.__DSRECOVERED){
+  (function(){
+    var rec = window.__DSRECOVERED;
+    setTimeout(function(){
+      toast('Recovered ' + rec.added + ' unsaved stroke' + (rec.added === 1 ? '' : 's') + ' on ' + rec.name + '.');
+    }, 900);
+  })();
+}
 /* clean up any duplicate school spellings already saved */
 (function(){
   var r0 = rosterLoad();
@@ -4861,6 +4941,40 @@ try {
     }catch(e){}
   }
 
+  /* Replay anything the crash journal caught but IndexedDB never committed.
+     The journal is written synchronously to localStorage on every stroke, so
+     even a hard app kill can only lose what was never journaled. */
+  function replayJournal(){
+    var raw = null;
+    try{ raw = localStorage.getItem('ds_journal'); }catch(e){}
+    if(!raw) return false;
+    var j;
+    try{ j = JSON.parse(raw); }catch(e){ return false; }
+    if(!j || !j.ln) return false;
+    var rosterStr = cache['ds_roster2'];
+    if(!rosterStr) return false;
+    var r;
+    try{ r = JSON.parse(rosterStr); }catch(e){ return false; }
+    var arr = ((r[j.cat] || {})[j.sc]) || [];
+    var target = null;
+    for(var i = 0; i < arr.length; i++){
+      var p = arr[i];
+      if((p.ln || '').toLowerCase() === (j.ln || '').toLowerCase() &&
+         (p.fn || '').toLowerCase() === (j.fn || '').toLowerCase()){ target = p; break; }
+    }
+    if(!target) return false;
+    var have = (target.ink || []).length;
+    var jn = (j.ink || []).length;
+    if(jn > have){
+      target.ink = j.ink;
+      target.inkH = j.inkH || target.inkH || 700;
+      cache['ds_roster2'] = JSON.stringify(r);
+      window.__DSRECOVERED = { name: j.ln + ', ' + j.fn, added: jn - have };
+      return true;
+    }
+    return false;
+  }
+
   function persistAll(db){
     try{
       var tx = db.transaction(STORE, 'readwrite');
@@ -4899,6 +5013,7 @@ try {
         seedFromLocalStorage();
         if(Object.keys(cache).length) persistAll(db);
       }
+      if(replayJournal()) persistAll(db);
       runApp();
     };
     keysReq.onsuccess = function(){ keys = keysReq.result; finish(); };
