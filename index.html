@@ -407,6 +407,7 @@
     <button id="addRosterBtn" class="ghost big">➕ Add a roster (never changes existing players)</button>
     <button id="restoreLuBtn" class="ghost big">↺ Restore lineups only (keeps today's work)</button>
     <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
+    <button id="recoverBtn" class="ghost big">🔎 Storage recovery scan</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
   </section>
 </div>
@@ -4104,6 +4105,11 @@ $('csvBtn').addEventListener('click', function(){
     });
   });
   shareTextFile(rosterFileName('csv'), lines.join('\r\n'), 'text/csv');
+});
+/* opens the read-only scan INSIDE this app, so it sees this app's own storage
+   (a Home Screen app and Safari keep separate storage containers on iOS) */
+$('recoverBtn').addEventListener('click', function(){
+  window.location.href = 'recover.html';
 });
 var restoreMode = 'all';
 $('addRosterBtn').addEventListener('click', function(){

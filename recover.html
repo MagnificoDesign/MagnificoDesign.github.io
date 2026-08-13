@@ -32,6 +32,7 @@
 <body>
 <h1>Dodger Scouting — Recovery</h1>
 <div class="sub">Read-only. This page never deletes or changes anything — it only looks and exports.</div>
+<div class="card warn" id="ctxCard"><h2>Where this is running</h2><div id="ctx">—</div></div>
 
 <div class="card" id="scanCard">
   <h2>What's on this device</h2>
@@ -44,6 +45,11 @@
   <button class="primary" id="dlBest" disabled>Download the best copy found</button>
   <button id="dlAll" disabled>Download everything (raw, for Claude)</button>
   <div class="note">Send the raw file to Claude if anything looks wrong — it contains every version found in every storage location.</div>
+</div>
+
+<div class="card">
+  <h2>Back</h2>
+  <button onclick="location.href='index.html'">‹ Back to the app</button>
 </div>
 
 <div class="card">
@@ -188,6 +194,15 @@ function dl(name, text){
   }
 }
 
+(function(){
+  var standalone = (window.navigator.standalone === true) ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  document.getElementById('ctx').innerHTML =
+    '<div class="row"><span>Context</span><b class="' + (standalone ? 'good' : 'bad') + '">' +
+    (standalone ? 'Inside the Home Screen app \u2014 correct' : 'Safari browser \u2014 NOT the app\u2019s storage') + '</b></div>' +
+    (standalone ? '' : '<div class="note">On iOS the Home Screen app keeps its own separate storage. ' +
+      'To scan the app\u2019s real data, open the app from your Home Screen and tap \u201CStorage recovery scan\u201D at the bottom of the Players screen.</div>');
+})();
 (async function(){
   sources['localStorage'] = readLocalStorage();
   sources['IndexedDB (dodgerScouting)'] = await readIDB('dodgerScouting');
