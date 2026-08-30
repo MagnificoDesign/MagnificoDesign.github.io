@@ -404,6 +404,18 @@
     <div id="storeBar"><div id="storeFill"></div></div>
     <div id="storeTxt"></div>
     <div class="btnRow rosterTools">
+      <button id="syncBtn" class="grow">☁︎ Sync now</button>
+      <button id="syncKeyBtn" class="grow">Sync setup</button>
+    </div>
+    <div id="syncSetup" class="hidden">
+      <input type="password" id="syncKeyInput" placeholder="Sync passphrase" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <div class="btnRow">
+        <button id="syncKeySave" class="grow primary">Save</button>
+        <button id="syncKeyCancel" class="grow">Cancel</button>
+      </div>
+    </div>
+    <div id="syncTxt" class="qhint"></div>
+    <div class="btnRow rosterTools">
       <button id="backupBtn" class="grow">Back up roster</button>
       <button id="restoreBtn" class="grow">Restore</button>
     </div>
@@ -698,6 +710,9 @@ function lsSet(k, v){
   /* keep small settings mirrored in localStorage; the big stuff lives in IndexedDB */
   if(v && v.length < 4000){
     try{ window.localStorage.setItem(k, v); }catch(e){}
+  }
+  if(k === 'ds_roster2' || k === 'ds_lineups' || k === 'ds_focus_session'){
+    try{ syncSchedule(); }catch(e){}
   }
   return true;
 }
@@ -4897,6 +4912,270 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   });
 }
+
+
+/* ================== Cloud sync (dodger-sync Worker) ==================
+   Pushes the roster / lineups / today's focus to a Cloudflare Worker so the
+   iPhone and iPad see the same data. Conflicts are merged, never overwritten:
+   the merge reuses mergePlayerInto(), the same additive rules the Restore
+   path uses, with stroke-level de-duplication added so handwriting doesn't
+   pile up a second copy every time two devices meet. */
+var SYNC_URL = 'https://dodger-sync.coach-magnifico.workers.dev';
+var SYNC_MAX = 20 * 1024 * 1024;   /* Worker rejects over 24MB; stop short of it */
+var syncBusy = false, syncTimer = null, syncMsg = '';
+
+function syncGetKey(){ return (lsGet('ds_sync_key') || '').trim(); }
+function syncRev(){ return parseInt(lsGet('ds_sync_rev') || '0', 10) || 0; }
+function syncDeviceName(){
+  var d = lsGet('ds_sync_device');
+  if(!d){
+    var ua = navigator.userAgent || '';
+    d = (/iPad/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))) ? 'iPad'
+      : (/iPhone/.test(ua) ? 'iPhone' : 'device');
+    lsSet('ds_sync_device', d);
+  }
+  return d;
+}
+
+function syncBundle(){
+  return JSON.stringify({
+    app: 'dodger-scouting', v: 3,
+    exported: new Date().toISOString(),
+    roster: rosterLoad(),
+    lineups: luLoad(),
+    focus: focusSessionLoad()
+  });
+}
+function syncHash(s){
+  var h = 0;
+  for(var i = 0; i < s.length; i++){ h = (h * 31 + s.charCodeAt(i)) % 1000000007; }
+  return s.length + '-' + h;
+}
+
+/* --- handwriting: a stroke fingerprint, so the same stroke merges as one --- */
+function inkSig(s){
+  var p = (s && s.pts) || [];
+  var n = p.length;
+  return (s.w || 5) + '|' + (s.c || '') + '|' + n + '|' +
+         (p[0] || 0) + ',' + (p[1] || 0) + '|' + (p[n - 2] || 0) + ',' + (p[n - 1] || 0);
+}
+function inkDedupe(arr){
+  var seen = {}, out = [];
+  (arr || []).forEach(function(s){
+    var k = inkSig(s);
+    if(!seen[k]){ seen[k] = 1; out.push(s); }
+  });
+  return out;
+}
+function inkCleanPlayer(p){
+  p.ink = inkDedupe(p.ink);
+  (p.banked || []).forEach(function(bk){ bk.ink = inkDedupe(bk.ink); });
+  return p;
+}
+
+/* Notes need their own rule for sync. mergePlayerInto() keeps whichever side
+   it saw first when one note contains the other, which is fine for a one-off
+   Restore but wrong here: typing onto the end of a note on the iPad makes the
+   iPad's version a superset, and first-writer-wins would silently drop the
+   words you just added. Longest wins when one contains the other. */
+function mergeNotes(a, b){
+  a = (a || '').trim(); b = (b || '').trim();
+  if(!a) return b;
+  if(!b) return a;
+  if(a.indexOf(b) >= 0) return a;
+  if(b.indexOf(a) >= 0) return b;
+  return a + '\n' + b;
+}
+
+/* --- merge a remote roster into the local one (additive, never deletes) --- */
+function syncMergeRoster(local, remote){
+  var added = 0, merged = 0;
+  CATS.forEach(function(cat){
+    local[cat] = local[cat] || {};
+    var idx = {};
+    Object.keys(local[cat]).forEach(function(sc){ idx[schoolKey(sc)] = sc; });
+    Object.keys(remote[cat] || {}).forEach(function(rsc){
+      var k = schoolKey(rsc), lsc = idx[k];
+      if(!lsc){ lsc = rsc; local[cat][lsc] = local[cat][lsc] || []; idx[k] = lsc; }
+      var list = local[cat][lsc];
+      (remote[cat][rsc] || []).forEach(function(rp){
+        var hit = null;
+        for(var i = 0; i < list.length; i++){ if(sameName(list[i], rp)){ hit = list[i]; break; } }
+        if(hit){
+          var keepNotes = mergeNotes(hit.notes, rp.notes);
+          mergePlayerInto(hit, normPlayer(rp));
+          hit.notes = keepNotes;
+          inkCleanPlayer(hit);
+          merged++;
+        }
+        else { list.push(inkCleanPlayer(normPlayer(rp))); added++; }
+      });
+    });
+  });
+  return { added: added, merged: merged };
+}
+function syncMergeLineups(localArr, remoteArr){
+  var have = {}, added = 0;
+  localArr.forEach(function(l){ if(l && l.id) have[l.id] = 1; });
+  (remoteArr || []).forEach(function(l){
+    if(l && l.id && !have[l.id]){ localArr.push(l); have[l.id] = 1; added++; }
+  });
+  return added;
+}
+function syncApplyRemote(payloadStr){
+  var data = null;
+  try{ data = JSON.parse(payloadStr); }catch(e){ return null; }
+  if(!data || !data.roster) return null;
+  var local = rosterLoad();
+  var res = syncMergeRoster(local, normRoster(data.roster));
+  rosterSave(local);
+  var lu = luLoad();
+  res.lineups = syncMergeLineups(lu, data.lineups || []);
+  if(res.lineups) luSave(lu);
+  if(ui.pane === 'players'){ try{ renderPlayers(); }catch(e){} }
+  try{ updateBackupNag(); }catch(e){}
+  return res;
+}
+
+/* --- status line --- */
+function syncStatus(msg){
+  if(msg !== undefined) syncMsg = msg;
+  var el = $('syncTxt');
+  if(!el) return;
+  if(!syncGetKey()){ el.textContent = 'Cloud sync is off — tap Sync setup to add your passphrase.'; return; }
+  if(syncMsg){ el.textContent = syncMsg; return; }
+  var at = lsGet('ds_sync_at');
+  if(!at){ el.textContent = 'Cloud sync is on. Not synced yet.'; return; }
+  var d = new Date(at);
+  var hh = d.getHours(), mm = String(d.getMinutes()).padStart(2, '0');
+  var ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12; if(!hh) hh = 12;
+  el.textContent = 'Synced ' + hh + ':' + mm + ' ' + ap + ' · this ' + syncDeviceName();
+}
+
+function syncFetch(method, body){
+  var k = syncGetKey();
+  var opt = { method: method, headers: { 'Authorization': 'Bearer ' + k } };
+  if(body){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  return fetch(SYNC_URL + '/data', opt);
+}
+
+/* --- pull, then push; a 409 means the other device got there first --- */
+function syncRun(manual, attempt){
+  attempt = attempt || 0;
+  if(attempt > 3){ syncBusy = false; syncStatus('Sync kept colliding — try again'); return; }
+  var payload = syncBundle();
+  if(payload.length > SYNC_MAX){
+    syncBusy = false;
+    syncStatus('Too big to sync (' + Math.round(payload.length / 1048576) + 'MB)');
+    if(manual) toast('Roster is too large to sync — tell Claude.');
+    return;
+  }
+  syncFetch('PUT', { rev: syncRev(), payload: payload, device: syncDeviceName() })
+    .then(function(res){
+      if(res.status === 401){
+        syncBusy = false; syncStatus('Passphrase rejected');
+        if(manual) toast('Sync passphrase was rejected.');
+        return;
+      }
+      if(res.status === 409){
+        return res.json().then(function(j){
+          var r = syncApplyRemote(j.payload);
+          lsSet('ds_sync_rev', String(j.rev || 0));
+          if(r && (r.added || r.merged || r.lineups)){
+            toast('Brought in ' + r.added + ' new, updated ' + r.merged + '.');
+          }
+          syncRun(manual, attempt + 1);
+        });
+      }
+      if(!res.ok){ syncBusy = false; syncStatus('Sync error ' + res.status); return; }
+      return res.json().then(function(j){
+        lsSet('ds_sync_rev', String(j.rev || 0));
+        lsSet('ds_sync_at', new Date().toISOString());
+        lsSet('ds_sync_hash', syncHash(payload));
+        syncBusy = false; syncStatus('');
+        if(manual) toast('Synced.');
+      });
+    })
+    .catch(function(){
+      syncBusy = false;
+      syncStatus('Offline — will retry');
+    });
+}
+function syncNow(manual){
+  if(syncBusy) return;
+  if(!syncGetKey()){
+    syncStatus();
+    if(manual) toast('Add your sync passphrase first.');
+    return;
+  }
+  if(!manual && syncHash(syncBundle()) === (lsGet('ds_sync_hash') || '')){
+    /* nothing changed locally; still check whether the other device pushed */
+    syncBusy = true; syncStatus('Checking…');
+    syncFetch('GET').then(function(res){
+      if(!res.ok){ syncBusy = false; syncStatus(res.status === 401 ? 'Passphrase rejected' : ''); return; }
+      return res.json().then(function(j){
+        if((j.rev || 0) !== syncRev() && j.payload){
+          var r = syncApplyRemote(j.payload);
+          lsSet('ds_sync_rev', String(j.rev || 0));
+          lsSet('ds_sync_at', new Date().toISOString());
+          lsSet('ds_sync_hash', syncHash(syncBundle()));
+          if(r && (r.added || r.merged)) toast('Brought in ' + r.added + ' new, updated ' + r.merged + '.');
+        }
+        syncBusy = false; syncStatus('');
+      });
+    }).catch(function(){ syncBusy = false; syncStatus('Offline — will retry'); });
+    return;
+  }
+  syncBusy = true; syncStatus('Syncing…');
+  syncRun(manual, 0);
+}
+function syncSchedule(){
+  if(!syncGetKey()) return;
+  if(syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(function(){ syncTimer = null; syncNow(false); }, 5000);
+}
+
+/* --- wiring --- */
+(function(){
+  var b = $('syncBtn'); if(b) b.addEventListener('click', function(){ syncNow(true); });
+  var s = $('syncKeyBtn');
+  if(s) s.addEventListener('click', function(){
+    var box = $('syncSetup');
+    if(!box) return;
+    box.classList.toggle('hidden');
+    if(!box.classList.contains('hidden')){ $('syncKeyInput').value = syncGetKey(); $('syncKeyInput').focus(); }
+  });
+  var sv = $('syncKeySave');
+  if(sv) sv.addEventListener('click', function(){
+    var v = ($('syncKeyInput').value || '').trim();
+    lsSet('ds_sync_key', v);
+    $('syncSetup').classList.add('hidden');
+    $('syncKeyInput').value = '';
+    syncStatus('');
+    toast(v ? 'Sync passphrase saved on this device.' : 'Cloud sync turned off here.');
+    if(v) syncNow(true);
+  });
+  var cn = $('syncKeyCancel');
+  if(cn) cn.addEventListener('click', function(){
+    $('syncSetup').classList.add('hidden');
+    $('syncKeyInput').value = '';
+  });
+
+  ['pagehide', 'blur'].forEach(function(ev){
+    window.addEventListener(ev, function(){
+      if(syncTimer){ clearTimeout(syncTimer); syncTimer = null; syncNow(false); }
+    });
+  });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){ syncNow(false); }
+    else if(syncTimer){ clearTimeout(syncTimer); syncTimer = null; syncNow(false); }
+  });
+  window.addEventListener('online', function(){ syncNow(false); });
+
+  syncStatus();
+  setTimeout(function(){ syncNow(false); }, 1500);
+})();
+/* ================ end cloud sync ================ */
 
 /* Open on + PLAYER every time (must be inside this IIFE) */
 try {
