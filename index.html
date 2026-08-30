@@ -134,8 +134,10 @@
   .catRow .qual{min-height:42px; padding:9px 10px;}
   .rosterTools{margin-top:12px;}
   .tabs{display:flex; gap:8px; margin-top:12px;}
-  .tab{flex:1; min-height:44px; font-weight:800; letter-spacing:.08em; font-size:13px;
+  .tab{flex:1; min-height:44px; font-weight:800; letter-spacing:.06em; font-size:12px;
+    padding:4px 3px; line-height:1.15;
     background:#fff; border:1px solid var(--line); color:var(--dim); border-radius:12px;}
+  @media (max-width:400px){ .tabs{gap:5px;} .tab{font-size:10.5px; letter-spacing:.02em;} }
   .backTab{flex:0 0 60px; font-size:20px; font-weight:800;}
   .muSub{margin-top:16px;}
   .tab.sel{background:var(--blue); border-color:var(--blue); color:#fff;}
@@ -365,6 +367,7 @@
   <button id="navBack" class="tab backTab" aria-label="Back">‹</button>
   <button id="tabCreate" class="tab sel">＋ PLAYER</button>
   <button id="tabPlayers" class="tab">PLAYERS</button>
+  <button id="tabPref" class="tab">★ PREF</button>
   <button id="tabFocus" class="tab">TODAY’S FOCUS</button>
 </nav>
 
@@ -428,6 +431,14 @@
     <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
     <button id="recoverBtn" class="ghost big">🔎 Storage recovery scan</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
+  </section>
+</div>
+
+<div id="panePref" class="hidden">
+  <section class="card">
+    <p class="eyebrow">Pref List</p>
+    <p class="qhint" style="margin-top:0">Everyone you’ve given a Role, highest first. Set a Role on a player’s card to add them here.</p>
+    <div id="prefList"></div>
   </section>
 </div>
 
@@ -1082,7 +1093,7 @@ function dedupeRoster(r){
   return { merges: merges, schools: schoolMerges };
 }
 var PITCH_KEYS = ['FBV','FBM','FBC','CB','SL','CH','OTH','CMD','ATH','AA','DEL','DEC'];
-var HIT_KEYS = ['HIT','RAW','PWR','DEF','RNG','RUN','COMP','ATH'];
+var HIT_KEYS = ['HIT','RAW','PWR','DEF','ARM','RNG','RUN','COMP','ATH'];
 var VELO_KEYS = ['FB','CB','SL','CH','CU','OTH'];
 var ROLE_OPTS = ['R2','R3','R4','R5','R6','R7','R8'];
 var QUAL_OPTS = ['Poor','Fair','Good','Excellent'];
@@ -1259,7 +1270,7 @@ function copyText(text){
 
 /* ---------- navigation ---------- */
 var ui = { pane: '', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null, lineups: false, lineupId: null, lineupNav: null, pickSlot: null };
-var PANES = ['create', 'players', 'card', 'focus'];
+var PANES = ['create', 'players', 'pref', 'card', 'focus'];
 function showPane(name){
   ui.pane = name;
   if(ui.swTimer){ clearInterval(ui.swTimer); ui.swTimer = null; }
@@ -1270,14 +1281,18 @@ function showPane(name){
   var hl = (name === 'card') ? ui.back : name;
   var tc = $('tabCreate'); if(tc) tc.classList.toggle('sel', hl === 'create');
   var tp = $('tabPlayers'); if(tp) tp.classList.toggle('sel', hl === 'players');
+  var tr = $('tabPref'); if(tr) tr.classList.toggle('sel', hl === 'pref');
   var tf = $('tabFocus'); if(tf) tf.classList.toggle('sel', hl === 'focus');
   if(name === 'players') renderPlayers();
+  if(name === 'pref') renderPrefPane();
+  updatePrefTab();
   if(name === 'focus') renderFocus();
   window.scrollTo(0, 0);
   navTick();
 }
 $('tabCreate').addEventListener('click', function(){ showPane('create'); });
 $('tabPlayers').addEventListener('click', function(){ showPane('players'); });
+$('tabPref').addEventListener('click', function(){ showPane('pref'); });
 $('tabFocus').addEventListener('click', function(){ showPane('focus'); });
 
 /* full-history back: every screen change is a step you can walk back through */
@@ -1836,11 +1851,33 @@ function renderLineupEditor(list, r){
   });
   list.appendChild(delB);
 }
+/* Pref List owns its own tab, so it renders into #prefList with no back link. */
+function prefCount(){
+  var r = rosterLoad(), n = 0;
+  CATS.forEach(function(cat){
+    Object.keys(r[cat] || {}).forEach(function(sc){
+      (r[cat][sc] || []).forEach(function(p){ if(p.outcome && p.outcome.role) n++; });
+    });
+  });
+  return n;
+}
+function updatePrefTab(){
+  var t = $('tabPref');
+  if(!t) return;
+  var n = prefCount();
+  t.textContent = n ? ('\u2605 PREF ' + n) : '\u2605 PREF';
+}
+function renderPrefPane(){
+  var list = $('prefList');
+  if(!list) return;
+  list.innerHTML = '';
+  renderPref(list, rosterLoad());
+  navTick();
+}
 function renderPref(list, r){
-  list.appendChild(backLink('All players', function(){ ui.pref = false; renderPlayers(); }));
   var ch = document.createElement('div');
   ch.className = 'catHead';
-  ch.textContent = 'Pref List \u00B7 by Role';
+  ch.textContent = 'By Role';
   list.appendChild(ch);
   var QV = { Excellent: 4, Good: 3, Fair: 2, Poor: 1 };
   var rows = [];
@@ -1886,7 +1923,7 @@ function renderPref(list, r){
     b.appendChild(s2);
     b.addEventListener('click', function(){
       if(assignIfPicking(e2.cat, e2.sc, e2.p)) return;
-      openCard(e2.cat, e2.sc, e2.p, 'players');
+      openCard(e2.cat, e2.sc, e2.p, 'pref');
     });
     row.appendChild(idx);
     row.appendChild(b);
@@ -1946,7 +1983,7 @@ function renderPlayersInner(){
     return;
   }
 
-  if(ui.pref){ renderPref(list, r); return; }
+  ui.pref = false;                      /* Pref List has its own tab now */
   if(ui.lineups){
     // legacy path — send user to Today\u2019s Focus tab
     ui.lineups = false;
@@ -1956,17 +1993,7 @@ function renderPlayersInner(){
 
   /* level 0: categories */
   if(!ui.cat){
-    var nRoled = 0;
-    CATS.forEach(function(cat){
-      Object.keys(r[cat] || {}).forEach(function(sc){
-        (r[cat][sc] || []).forEach(function(p){ if(p.outcome && p.outcome.role) nRoled++; });
-      });
-    });
-    list.appendChild(navRow('\u2605 PREF LIST', nRoled + ' \u203A', function(){
-      ui.pref = true;
-      renderPlayers();
-    }));
-    /* LINEUPS moved to Today\u2019s Focus tab */
+    /* PREF LIST moved to its own tab; LINEUPS lives in Today\u2019s Focus */
     CATS.forEach(function(cat){
       var n = 0;
       Object.keys(r[cat] || {}).forEach(function(sc){ n += (r[cat][sc] || []).length; });
@@ -3433,7 +3460,11 @@ function focusSessionSave(s){
 function focusMakeFreshLineup(name){
   var all = luLoad();
   var id = 'lu-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-  var lu = { id: id, name: name || 'Lineup 1', players: [null], pitchers: [] };
+  /* temp: born on the board, not in the library. It only joins Previous Lineups
+     when Save lineup is tapped, so a night spent watching two arms doesn't leave
+     a stray lineup behind. Player card data is stored separately and is never
+     affected by discarding one of these. */
+  var lu = { id: id, name: name || 'Lineup 1', players: [null], pitchers: [], temp: true };
   all.push(lu);
   luSave(all);
   return lu;
@@ -3462,34 +3493,56 @@ function focusEnsureSession(){
 /** Close both active lineups (they remain in Previous Lineups) and start a fresh Lineup 1 */
 function focusStartFresh(){
   var s = focusSessionLoad();
-  // Keep prior lineups in the library — only clear the board
+  /* saved lineups stay in the library; unsaved ones go away with the board */
+  [s.a, s.b].forEach(function(id){ if(focusIsTemp(id)) focusDiscard(id); });
   var fresh = focusMakeFreshLineup('Lineup 1');
   focusSessionSave({ a: fresh.id, b: null });
   if($('prevLuSearch')) $('prevLuSearch').value = '';
   toast('Board cleared — previous lineups are still saved under Previous Lineups.');
   renderFocus();
 }
-/** Remove one side from the board (lineup stays in library) */
+function focusDiscard(id){
+  if(!id) return;
+  luSave(luLoad().filter(function(x){ return x.id !== id; }));
+}
+function focusIsTemp(id){
+  var lu = id ? luFind(id) : null;
+  return !!(lu && lu.temp);
+}
+/** Remove one side from the board. A saved lineup stays in the library;
+    one that was never saved is dropped. */
 function focusCloseSide(side){
-  var s = focusSessionLoad();
-  if(side === 'b'){
-    s.b = null;
-  } else {
-    // closing A: promote B if present, else leave empty for ensure to refill
-    if(s.b){ s.a = s.b; s.b = null; }
-    else { s.a = null; }
+  var s0 = focusSessionLoad();
+  var id = (side === 'b') ? s0.b : s0.a;
+  var lu = id ? luFind(id) : null;
+  var isTemp = !!(lu && lu.temp);
+  var n = lu ? (lu.players || []).filter(Boolean).length : 0;
+  var go = function(){
+    var s = focusSessionLoad();
+    if(side === 'b'){
+      s.b = null;
+    } else {
+      if(s.b){ s.a = s.b; s.b = null; }
+      else { s.a = null; }
+    }
+    focusSessionSave(s);
+    if(isTemp) focusDiscard(id);
+    s = focusSessionLoad();
+    if(!s.a){
+      var fresh = focusMakeFreshLineup('Lineup 1');
+      focusSessionSave({ a: fresh.id, b: null });
+    }
+    toast(isTemp ? 'Lineup closed \u2014 not saved.' : 'Lineup closed \u2014 still saved under Previous Lineups.');
+    renderFocus();
+  };
+  if(isTemp && n > 0){
+    askConfirm('Close this lineup without saving it?\n\n' + n + ' player' + (n === 1 ? '' : 's') +
+      ' on the card. It will not appear under Previous Lineups.\n\n' +
+      'Everything you entered on the player pages is already saved and is not affected.',
+      go, 'Close without saving');
+    return;
   }
-  focusSessionSave(s);
-  // If nothing left, make a fresh Lineup 1 so the board is never empty
-  s = focusSessionLoad();
-  if(!s.a){
-    var fresh = focusMakeFreshLineup('Lineup 1');
-    focusSessionSave({ a: fresh.id, b: null });
-    toast('Lineup closed — started a fresh Lineup 1.');
-  } else {
-    toast('Lineup closed — still saved under Previous Lineups.');
-  }
-  renderFocus();
+  go();
 }
 
 function renderFocus(){
@@ -3533,7 +3586,7 @@ function renderFocus(){
   freshBtn.style.marginTop = '0';
   freshBtn.textContent = 'Start fresh board';
   freshBtn.addEventListener('click', function(){
-    askConfirm('Close the current lineup' + (luB || focusPickingB ? 's' : '') + ' and start a blank Lineup 1?\n\nYour closed lineups stay under Previous Lineups \u2014 nothing is deleted.', function(){
+    askConfirm('Close the current lineup' + (luB || focusPickingB ? 's' : '') + ' and start a blank Lineup 1?\n\nSaved lineups stay under Previous Lineups. Anything not yet saved will be dropped \u2014 your player card entries are unaffected.', function(){
       focusPickingB = false;
       focusStartFresh();
     }, 'Start fresh');
@@ -3595,6 +3648,7 @@ function fillPrevLuResults(q){
   var shown = 0;
   all.forEach(function(lu){
     if(lu.id === s.a || lu.id === s.b) return;
+    if(lu.temp) return;                    /* never saved — not part of the library */
     var name = lu.name || 'Lineup';
     if(ql && name.toLowerCase().indexOf(ql) < 0) return;
     shown++;
@@ -3837,6 +3891,34 @@ function buildFocusCol(lu, side){
     });
     bin.appendChild(allBack);
     col.appendChild(bin);
+  }
+
+  /* Save lineup — only shown while the lineup is still unsaved. */
+  if(lu.temp){
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'primary';
+    saveBtn.style.cssText = 'width:100%;margin-top:12px;min-height:46px;font-size:15px;';
+    saveBtn.textContent = 'Save lineup';
+    saveBtn.addEventListener('click', function(){
+      var nm = (nameIn.value || '').trim();
+      if(!nm || /^lineup\s*\d*$/i.test(nm)){
+        toast('Name the lineup first \u2014 tap the title above.');
+        try{ nameIn.focus(); nameIn.select(); }catch(e){}
+        return;
+      }
+      var cnt = (luFind(lu.id) || { players: [] }).players.filter(Boolean).length;
+      var all = luLoad();
+      all.forEach(function(x){ if(x.id === lu.id){ x.temp = false; x.name = nm; } });
+      luSave(all);
+      renderFocus();
+      toast('Saved \u201C' + nm + '\u201D \u00B7 ' + cnt + ' player' + (cnt === 1 ? '' : 's') + '.');
+    });
+    col.appendChild(saveBtn);
+  } else {
+    var savedTag = document.createElement('div');
+    savedTag.style.cssText = 'margin-top:12px;text-align:center;font-size:12.5px;color:#12813F;font-weight:600;';
+    savedTag.textContent = '\u2713 Saved under Previous Lineups';
+    col.appendChild(savedTag);
   }
 
   return col;
