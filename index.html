@@ -367,7 +367,7 @@
   <button id="navBack" class="tab backTab" aria-label="Back">‹</button>
   <button id="tabCreate" class="tab sel">＋ PLAYER</button>
   <button id="tabPlayers" class="tab">PLAYERS</button>
-  <button id="tabPref" class="tab">★ PREF</button>
+  <button id="tabPref" class="tab">PREF</button>
   <button id="tabFocus" class="tab">TODAY’S FOCUS</button>
 </nav>
 
@@ -1285,7 +1285,6 @@ function showPane(name){
   var tf = $('tabFocus'); if(tf) tf.classList.toggle('sel', hl === 'focus');
   if(name === 'players') renderPlayers();
   if(name === 'pref') renderPrefPane();
-  updatePrefTab();
   if(name === 'focus') renderFocus();
   window.scrollTo(0, 0);
   navTick();
@@ -1852,21 +1851,6 @@ function renderLineupEditor(list, r){
   list.appendChild(delB);
 }
 /* Pref List owns its own tab, so it renders into #prefList with no back link. */
-function prefCount(){
-  var r = rosterLoad(), n = 0;
-  CATS.forEach(function(cat){
-    Object.keys(r[cat] || {}).forEach(function(sc){
-      (r[cat][sc] || []).forEach(function(p){ if(p.outcome && p.outcome.role) n++; });
-    });
-  });
-  return n;
-}
-function updatePrefTab(){
-  var t = $('tabPref');
-  if(!t) return;
-  var n = prefCount();
-  t.textContent = n ? ('\u2605 PREF ' + n) : '\u2605 PREF';
-}
 function renderPrefPane(){
   var list = $('prefList');
   if(!list) return;
