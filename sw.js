@@ -1,5 +1,5 @@
 /* Dodger Scouting offline cache */
-var CACHE = 'dodger-scouting-v45';
+var CACHE = 'dodger-scouting-v46';
 var CORE = ['./', 'index.html', 'dodger-stitch-icon.png'];
 
 /* This worker registers at ORIGIN scope, so it sees requests for every project

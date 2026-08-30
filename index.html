@@ -422,6 +422,8 @@
     <button id="sendBtn" class="primary big">✈︎ Send roster to my other device</button>
     <button id="addRosterBtn" class="ghost big">➕ Add a roster (never changes existing players)</button>
     <button id="restoreLuBtn" class="ghost big">↺ Restore lineups only (keeps today's work)</button>
+    <button id="replaceRosterBtn" class="ghost big">⇄ Replace everything with a file</button>
+    <button id="undoReplaceBtn" class="ghost big offscreen">↶ Undo the last replace</button>
     <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
     <button id="recoverBtn" class="ghost big">🔎 Storage recovery scan</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
@@ -930,6 +932,33 @@ function schoolKey(s){
   return t || raw;
 }
 /* fold everything known about p into hit; notes from both are kept */
+/* A stroke is { w:width, c:colour, pts:[x,y,x,y,...] } with no identifier.
+   This builds a stable signature from its contents so the same stroke arriving
+   twice can be recognised. */
+function inkSig(st){
+  if(!st) return '';
+  return (st.c || '') + '|' + (st.w || '') + '|' + ((st.pts || []).join(','));
+}
+/* Counts what actually matters in a roster, for the before/after figures shown
+   on a replace. Ink is counted on the pad AND inside every banked look. */
+function countRoster(r){
+  var out = { players: 0, schools: 0, ink: 0, banked: 0 };
+  CATS.forEach(function(cat){
+    Object.keys((r && r[cat]) || {}).forEach(function(sc){
+      out.schools++;
+      ((r[cat] || {})[sc] || []).forEach(function(p){
+        if(!p) return;
+        out.players++;
+        out.ink += (p.ink || []).length;
+        (p.banked || []).forEach(function(b){
+          out.banked++;
+          out.ink += ((b && b.ink) || []).length;
+        });
+      });
+    });
+  });
+  return out;
+}
 function mergePlayerInto(hit, p){
   if(p.pos) hit.pos = p.pos;
   var hn = (hit.notes || '').trim(), pn = (p.notes || '').trim();
@@ -968,7 +997,18 @@ function mergePlayerInto(hit, p){
     if(iv[vk].avg) hit.velos[vk].avg = iv[vk].avg;
   });
   hit.ink = hit.ink || [];
-  (p.ink || []).forEach(function(st){ hit.ink.push(st); });
+  /* Strokes carry no id, so a stroke's identity is the stroke itself: colour,
+     width and every point. Counted as a multiset, re-importing the same backup
+     adds nothing, while a genuinely repeated mark still keeps both copies.
+     Without this, importing a backup onto the device it came from doubled
+     every handwritten note on top of itself. */
+  var haveInk = {};
+  hit.ink.forEach(function(st){ var ks = inkSig(st); haveInk[ks] = (haveInk[ks] || 0) + 1; });
+  (p.ink || []).forEach(function(st){
+    var ks = inkSig(st);
+    if(haveInk[ks] > 0){ haveInk[ks]--; return; }
+    hit.ink.push(st);
+  });
   hit.inkH = Math.max(hit.inkH || 700, p.inkH || 700);
   hit.banked = hit.banked || [];
   var haveB = {};
@@ -4215,6 +4255,107 @@ $('restoreLuBtn').addEventListener('click', function(){
   restoreMode = 'lineups';
   $('restoreInput').click();
 });
+$('replaceRosterBtn').addEventListener('click', function(){
+  restoreMode = 'replace';
+  $('restoreInput').click();
+});
+
+/* Wipes the roster and loads the file wholesale. Every player is passed through
+   normPlayer with ink, inkH and banked carried across intact. Lineups are only
+   touched when the file actually contains a lineups list. */
+function doReplaceAll(obj, inc){
+  snapSave();
+  var r = blankRoster();
+  CATS.forEach(function(cat){
+    var schools = inc[cat] || {};
+    Object.keys(schools).forEach(function(sc){
+      var list = (schools[sc] || []).filter(function(p){ return p && (p.ln || p.fn); }).map(function(p){
+        return normPlayer({
+          ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '',
+          grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {},
+          outcome: p.outcome || { role: '', qual: '', val: '' },
+          ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' },
+          ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice()
+        });
+      });
+      if(list.length) r[cat][sc] = list;
+    });
+  });
+  rosterSave(r);
+  var luMsg = '';
+  if(obj && Object.prototype.toString.call(obj.lineups) === '[object Array]'){
+    luSave(obj.lineups.map(function(lu){
+      return {
+        id: String((lu && lu.id) || ('lu-' + Date.now() + '-' + Math.floor(Math.random() * 1000000))),
+        name: (lu && lu.name) || 'Lineup 1',
+        players: ((lu && lu.players) || []).map(function(ref){
+          return ref ? { cat: ref.cat, sc: ref.sc, ln: ref.ln || '', fn: ref.fn || '' } : null;
+        }),
+        pitchers: ((lu && lu.pitchers) || []).map(function(ref){
+          return ref ? { cat: ref.cat, sc: ref.sc, ln: ref.ln || '', fn: ref.fn || '' } : null;
+        })
+      };
+    }));
+  } else {
+    luMsg = ' Lineups were left alone \u2014 the file had none.';
+  }
+  /* whatever was open may no longer exist */
+  ui.school = null; ui.player = null; ui.lineupId = null; ui.pickSlot = null;
+  var c = countRoster(r);
+  lsSet('ds_backupHash', rosterHash());
+  updateBackupNag();
+  updateUndoBtn();
+  renderRoster();
+  showPane('players');
+  toast('Replaced \u2014 ' + c.players + ' players, ' + c.schools + ' schools, ' + c.ink + ' strokes.' + luMsg);
+}
+
+/* ---------- pre-replace snapshot ----------
+   Replace is the only import that can remove work, so the roster and lineups as
+   they stood a moment before are kept whole and can be put back in one tap. */
+function snapSave(){
+  try{
+    lsSet('ds_prereplace', JSON.stringify({
+      at: new Date().toISOString(),
+      roster: rosterLoad(),
+      lineups: luLoad()
+    }));
+  }catch(e){}
+  updateUndoBtn();
+}
+function snapLoad(){
+  try{ return JSON.parse(lsGet('ds_prereplace') || 'null'); }catch(e){ return null; }
+}
+function updateUndoBtn(){
+  var b = $('undoReplaceBtn');
+  if(!b) return;
+  var s = snapLoad();
+  b.classList.toggle('offscreen', !s);
+  if(s){
+    var c = countRoster(s.roster);
+    b.textContent = '\u21B6 Undo the last replace (back to ' + c.players + ' players, ' + c.ink + ' strokes)';
+  }
+}
+$('undoReplaceBtn').addEventListener('click', function(){
+  var s = snapLoad();
+  if(!s){ toast('There is no replace to undo.'); return; }
+  var c = countRoster(s.roster);
+  askConfirm(
+    'Put the roster back to how it was before the replace?\n\n' +
+    c.players + ' players \u00B7 ' + c.schools + ' schools \u00B7 ' + c.ink + ' ink strokes\n\n' +
+    'Anything entered since the replace will be discarded.',
+    function(){
+      rosterSave(normRoster(s.roster));
+      luSave(s.lineups || []);
+      lsSet('ds_prereplace', '');
+      updateUndoBtn();
+      renderRoster();
+      toast('Roster put back \u2014 ' + c.players + ' players, ' + c.ink + ' strokes.');
+    },
+    'Put it back'
+  );
+});
+updateUndoBtn();
 $('restoreInput').addEventListener('change', function(e){
   var f = e.target.files && e.target.files[0];
   e.target.value = '';
@@ -4225,6 +4366,32 @@ $('restoreInput').addEventListener('change', function(e){
       var obj = JSON.parse(rd.result);
       var inc = (obj && obj.roster) ? obj.roster : obj;
       if(!inc || typeof inc !== 'object') throw new Error('bad');
+      /* Replace mode: the only import that can REMOVE work. Every other mode
+         merges or skips, so a file describing a cleaned-up roster could never
+         actually delete the duplicates it was meant to remove. This wipes and
+         loads wholesale, after showing the real before/after numbers and taking
+         a snapshot that can be put back in one tap. */
+      if(restoreMode === 'replace'){
+        var before = countRoster(rosterLoad());
+        var after = countRoster(inc);
+        var warn = '';
+        if(before.ink > 0 && after.ink === 0){
+          warn = '\n\nSTOP: this device has ' + before.ink + ' ink strokes and the file has NONE. ' +
+                 'Replacing would remove all of your handwriting.';
+        } else if(after.ink < before.ink){
+          warn = '\n\nCareful: the file has ' + (before.ink - after.ink) + ' fewer strokes than this device.';
+        }
+        askConfirm(
+          'Replace everything on this device with this file?\n\n' +
+          'On this device:  ' + before.players + ' players \u00B7 ' + before.schools + ' schools \u00B7 ' + before.ink + ' strokes\n' +
+          'In the file:     ' + after.players + ' players \u00B7 ' + after.schools + ' schools \u00B7 ' + after.ink + ' strokes' +
+          warn +
+          '\n\nA snapshot is kept first, so this can be undone.',
+          function(){ doReplaceAll(obj, inc); },
+          'Replace everything'
+        );
+        return;
+      }
       /* Lineups-only mode: bring back a lineup without letting older card data
          overwrite anything entered since that backup was made. */
       var lineupsOnly = (restoreMode === 'lineups');
@@ -4256,7 +4423,11 @@ $('restoreInput').addEventListener('change', function(e){
               mergePlayerInto(hit, p);
               updated++;
             } else {
-              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' } }));
+              /* ink / inkH / banked must be carried across here. They were once
+                 left out of this list, so any player who did NOT already exist
+                 on the receiving device arrived with their handwriting and their
+                 banked evaluations silently stripped. */
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
               added++;
             }
           });
