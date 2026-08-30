@@ -424,6 +424,7 @@
     <button id="restoreLuBtn" class="ghost big">↺ Restore lineups only (keeps today's work)</button>
     <button id="replaceRosterBtn" class="ghost big">⇄ Replace everything with a file</button>
     <button id="undoReplaceBtn" class="ghost big offscreen">↶ Undo the last replace</button>
+    <button id="cleanupBtn" class="primary big offscreen">✦ Clean up duplicates</button>
     <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
     <button id="recoverBtn" class="ghost big">🔎 Storage recovery scan</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
@@ -4356,6 +4357,261 @@ $('undoReplaceBtn').addEventListener('click', function(){
   );
 });
 updateUndoBtn();
+var CU_GROUPS = [{"m": [["Topeka Seaman High School", "Axton", "Brewer"], ["Seaman", "Axton", "Brewer"]], "sc": "Topeka Seaman High School", "fn": "Axton", "ln": "Brewer"}, {"m": [["Casteel High School", "Baylor", "Denny"], ["Camille Casteel", "Baylor", "Denny"]], "sc": "Casteel High School", "fn": "Baylor", "ln": "Denny"}, {"m": [["Casteel High School", "Taylor", "Dodd"], ["Camille Casteel", "Taylor", "Dodd"]], "sc": "Casteel High School", "fn": "Taylor", "ln": "Dodd"}, {"m": [["Liberty HS-Wentzville", "Ryan", "Dobratz"], ["Liberty", "Ryan", "Dobratz"]], "sc": "Liberty HS-Wentzville", "fn": "Ryan", "ln": "Dobratz"}, {"m": [["Madison Co. High School", "Jace", "Duckett"], ["Madison County High School", "Jace", "Duckett"]], "sc": "Madison County High School", "fn": "Jace", "ln": "Duckett"}, {"m": [["Edmond Memorial", "Kywin \"Cole\"", "Dunlap"], ["Edmond Memorial", "Cole", "Dunlap"]], "sc": "Edmond Memorial", "fn": "Kywin \"Cole\"", "ln": "Dunlap"}, {"m": [["Pheonix Country Day School", "Soren", "Etheridge"], ["Phoenix Country Day School", "Soren", "Etheridge"]], "sc": "Phoenix Country Day School", "fn": "Soren", "ln": "Etheridge"}, {"m": [["McEachern High School", "Harry", "Jones Jr"], ["McEachern High School", "Harry \"Chubb\"", "Jones Jr."]], "sc": "McEachern High School", "fn": "Harry \"Chubb\"", "ln": "Jones Jr."}, {"m": [["Central High School", "Joe", "Mendazona Jr."], ["Central High School", "Joe", "Mendazona"]], "sc": "Central High School", "fn": "Joe", "ln": "Mendazona Jr."}, {"m": [["Wyoming Seminary Preparatory School", "Leo", "Nockley"], ["Wyoming Seminary Prep", "Leo", "Nockley"]], "sc": "Wyoming Seminary Preparatory School", "fn": "Leo", "ln": "Nockley"}, {"m": [["Ayala High School", "Easton", "Sarmiento"], ["Ruben S. Ayala", "Easton", "Sarmiento"]], "sc": "Ruben S. Ayala High School", "fn": "Easton", "ln": "Sarmiento"}, {"m": [["Maple Grove", "Beckett", "Shimpa"], ["Maple Grove Senior High School", "Beckett", "Shimpa"]], "sc": "Maple Grove Senior High School", "fn": "Beckett", "ln": "Shimpa"}, {"m": [["William Field High School", "Joshua", "Utash"], ["Williams Field High School", "Joshua \"JJ\"", "Utash"], ["Williams Field High School", "JJ", "Utash"]], "sc": "Williams Field High School", "fn": "Joshua \"JJ\"", "ln": "Utash"}, {"m": [["Liberty", "Bobby", "Villa"], ["Liberty", "Robert", "Villa III"], ["Liberty", "Robert \"Bobby\"", "Villa III"]], "sc": "Liberty", "fn": "Robert \"Bobby\"", "ln": "Villa III"}, {"m": [["IMG Academy", "Sebastian", "Wilson"], ["IMG Academy", "Sebastian \"Sushi\"", "Wilson"]], "sc": "IMG Academy", "fn": "Sebastian \"Sushi\"", "ln": "Wilson"}, {"m": [["St. Laurence", "James", "Benson"], ["St. Laurence", "Jimmy", "Benson"]], "sc": "St. Laurence", "fn": "James", "ln": "Benson"}];
+var CU_SCHOOLS = {"Camille Casteel": "Casteel High School", "Madison Co. High School": "Madison County High School", "Pheonix Country Day School": "Phoenix Country Day School", "Ayala High School": "Ruben S. Ayala High School", "Ruben S. Ayala": "Ruben S. Ayala High School", "Maple Grove": "Maple Grove Senior High School", "William Field High School": "Williams Field High School", "Wyoming Seminary Prep": "Wyoming Seminary Preparatory School", "Seaman": "Topeka Seaman High School"};
+var CU_IOWA = [["Davis", "Myles", "IF", "#1 · Iowa · 3rd year · Marion, Iowa · HS: A3 Academy · Previous: State College Of Florida/Oklahoma\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'1\"", "205", "R/R"], ["Irlbeck", "Brody", "LHP/OF", "#2 · Iowa · 2nd year · Kansas City, Mo. · HS: Staley\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "178", "L/L"], ["Burt", "Max", "C", "#3 · Iowa · 4th year · Mason City, Iowa · HS: Newman Catholic\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'0\"", "227", "R/R"], ["Alivo", "Kyle", "IF/RHP", "#5 · Iowa · 3rd year · Franklin, Wis. · HS: St. Thomas More\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'1\"", "177", "R/R"], ["Matthys", "Wrigley", "OF", "#6 · Iowa · 3rd year · Davenport, Iowa · HS: Bettendorf · Previous: Kirkwood CC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'9\"", "174", "L/L"], ["Ziegler", "Jaylen", "OF", "#7 · Iowa · 5th year · Urbandale, Iowa · HS: Urbandale · Previous: DMACC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'11\"", "172", "R/R"], ["Heitman", "Nick", "RHP", "#8 · Iowa · 3rd year · McCordsville, Ind. · HS: Mount Vernon\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'3\"", "181", "R/R"], ["Slagle", "Tate", "UTIL/RHP", "#9 · Iowa · 2nd year · Algona, Iowa · HS: Algona\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'1\"", "178", "R/R"], ["Luett", "Garrett", "IF", "#10 · Iowa · 1st year · Underwood, Iowa · HS: Underwood\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'3\"", "220", "L/R"], ["Crider", "Carson", "RHP", "#11 · Iowa · 1st year · Wake Forest, N.C. · HS: Wake Forest\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "180", "R/R"], ["Hopkins", "Nathan", "IF", "#12 · Iowa · 4th year · Parker, Colo. · HS: Legend · Previous: Seward County CC/Southeastern\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'11\"", "170", "R/R"], ["de Jesus", "Gavin", "IF", "#13 · Iowa · 1st year · West Des Moines, Iowa · HS: Waukee\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'9\"", "165", "R/R"], ["Geffre", "Carter", "C", "#14 · Iowa · 3rd year · Ames, Iowa · HS: Ames\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'3\"", "217", "R/R"], ["Ferguson", "Brady", "RHP", "#16 · Iowa · 2nd year · Omaha, Neb. · HS: Millard West\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'3\"", "204", "R/R"], ["Frost", "Brolan", "LHP", "#17 · Iowa · 2nd year · Waterford, Wis. · HS: Elkhorn\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'5\"", "187", "L/L"], ["Manderson", "Luke", "RHP/OF", "#18 · Iowa · 1st year · Jacksonville, Fla. · HS: The Providence School\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "185", "R/R"], ["Terhaar", "Nick", "RHP", "#19 · Iowa · 2nd year · Saginaw, Minn. · HS: Proctor\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'3\"", "224", "R/R"], ["Holland", "Aaron", "C", "#20 · Iowa · 5th year · Wheaton, Ill. · HS: Wheaton North · Previous: Wisconsin-Whitewater\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'9\"", "190", "R/R"], ["Wilcox", "Carter", "LHP", "#22 · Iowa · 2nd year · Aurora, Colo. · HS: Cherokee Trail\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'1\"", "165", "L/L"], ["Rerick", "Drew", "RHP", "#23 · Iowa · 3rd year · Fargo, N.D. · HS: Davies · Previous: Texas/Oklahoma\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'4\"", "243", "R/R"], ["McCarty", "Brooks", "LHP", "#24 · Iowa · 1st year · Orange City, Iowa · HS: MOC-Floyd Valley\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "5'10\"", "165", "L/L"], ["Frey", "Diego", "IF", "#25 · Iowa · 5th year · Covina, Calif. · HS: Northview · Previous: Azusa Pacific\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'2\"", "190", "R/R"], ["Toft", "Ben", "OF", "#26 · Iowa · 2nd year · Wilmette, Ill. · HS: New Trier\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "5'10\"", "187", "L/L"], ["Frost", "Jaixen", "IF", "#27 · Iowa · 4th year · Kellerton, Iowa · HS: Mount Ayr\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'3\"", "195", "R/R"], ["Vande Hey", "Trevor", "OF", "#28 · Iowa · 2nd year · De Pere, Wis. · HS: Wrightstown\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'0\"", "200", "R/R"], ["Mikkelsen", "Ty", "RHP", "#29 · Iowa · 3rd year · Grimes, Iowa · HS: Dallas-Center Grimes\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "190", "R/R"], ["Bleeker", "Jaron", "RHP", "#30 · Iowa · 3rd year · Sergeant Bluff, Iowa · HS: Bishop Heelan\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'3\"", "216", "R/R"], ["Frese", "Maddux", "RHP", "#31 · Iowa · 4th year · Norway, Iowa · HS: Cedar Rapids Prairie · Previous: Southeastern CC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "191", "R/R"], ["Stedman", "Ryan", "RHP", "#32 · Iowa · 1st year · West Des Moines, Iowa · HS: West Des Moines Valley\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'3\"", "190", "R/R"], ["Stein", "Sawyer", "1B", "#33 · Iowa · 3rd year · Eau Claire, Wisc. · HS: Memorial · Previous: Iowa Central CC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'2\"", "215", "R/R"], ["Harris", "Brett", "C", "#34 · Iowa · 1st year · Peosta, Iowa · HS: Western Dubuque\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'0\"", "205", "L/R"], ["Burkle", "Reid", "RHP", "#35 · Iowa · 3rd year · Cedar Rapids, Iowa · HS: Cedar Rapids Prairie\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'5\"", "215", "R/R"], ["Pierro", "Will", "RHP", "#36 · Iowa · 2nd year · Dubuque, Iowa · HS: Wahlert Catholic · Previous: St. Thomas\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'0\"", "205", "R/R"], ["Donels", "Rowan", "RHP", "#37 · Iowa · 4th year · Cedar Rapids, Iowa · HS: Cedar Rapids Kennedy · Previous: Kirkwood CC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'5\"", "210", "R/R"], ["Leisure", "Beau", "RHP", "#38 · Iowa · 4th year · Knoxville, Iowa · HS: Knoxville · Previous: Abilene Christian/Kirkwood CC\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'4\"", "226", "R/R"], ["White", "Brett", "UTIL", "#40 · Iowa · 3rd year · North Liberty, Iowa · HS: Solon · Previous: Baylor\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'1\"", "204", "L/R"], ["Strohmeyer", "Kellen", "UTIL", "#44 · Iowa · 5th year · Dubuque, Iowa · HS: Hempstead\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "HITTER", "6'3\"", "219", "L/R"], ["Dean", "Austin", "LHP", "#99 · Iowa · 2nd year · Alexandria, Va. · HS: West Potomac · Previous: Virginia Tech\nSource: hawkeyesports.com official roster, 2026-27 · pulled 8/30/2026", "PITCHER", "6'8\"", "235", "L/L"]];
+var CU_ARK = [["Kline", "Clayton", "INF", "#1 · Arkansas State · Yr 1 · DOB 8/21/2007 · Holland, NY\nHS: Homeschool\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "5'9\"", "170", "S/R"], ["Gartman", "Drew", "INF", "#2 · Arkansas State · Yr 2 · DOB 11/29/2006 · Jonesboro, AR\nHS: Valley View HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'3\"", "175", "R/R"], ["Mathis", "Keaton", "C", "#3 · Arkansas State · Yr 1 · DOB 7/10/2007 · Jonesboro, AR\nHS: Valley View HS\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "5'11\"", "180", "R/R"], ["McLaughlin", "Joey", "OF", "#5 · Arkansas State · Yr 2 · DOB 7/12/2007 · Harrah, OK\nHS: Harrah HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'1\"", "200", "L/L"], ["Walton", "Lane", "INF", "#6 · Arkansas State · Yr 3 · DOB 1/9/2006 · Sugar Land, TX\nHS: George Ranch HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'4\"", "200", "L/R"], ["Lawler", "Marcus", "INF", "#7 · Arkansas State · Yr 1 · DOB 7/5/2008 · Anniston, AL\nHS: Oxford HS\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "5'10\"", "175", "R/R"], ["Sayre", "Mason", "INF", "#9 · Arkansas State · Yr 4 · DOB 7/19/2005 · Vacaville, CA\nHS: Will C. Wood HS · Prior: Solano CC\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'1\"", "170", "R/R"], ["Cooke", "Cougar", "UTL", "#10 · Arkansas State · Yr 5 · DOB 1/21/2003 · Show Low, AZ\nHS: Show Low HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'2\"", "195", "S/R"], ["Engskov", "Harrison", "UTL", "#12 · Arkansas State · Yr 2 · DOB 11/6/2005 · Little Rock, AR\nHS: Little Rock Christian · Prior: Three Rivers CC\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'1\"", "195", "S/R"], ["Flores", "Eric", "OF", "#13 · Arkansas State · Yr 1 · DOB 12/6/2007 · Greenacres, FL\nHS: Wellington Sports Academy\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'2\"", "195", "L/L"], ["Mayse", "Myles", "C", "#14 · Arkansas State · Yr 2 · DOB 8/18/2006 · Dallas, TX\nHS: PDG Academy · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "5'10\"", "200", "S/R"], ["Martinez", "Derek", "C/1B", "#15 · Arkansas State · Yr 2 · DOB 11/14/2005 · Clermont, FL\nHS: TNXL Academy · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'4\"", "205", "R/R"], ["Gélinas", "Josué", "C", "#17 · Arkansas State · Yr 1 · DOB 8/27/2008 · Trois-Rivieres, QC\nHS: Academy Baseball Canada · Prior: Academy Canada Baseball\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'0\"", "200", "L/R"], ["Rath", "Aidan", "RHP", "#19 · Arkansas State · Yr 4 · DOB 2/7/2003 · Kalona, IA\nHS: Mid-Prairie Community HS · Prior: Tulane\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'7\"", "245", "R/R"], ["Houseworth", "Aidan", "INF", "#20 · Arkansas State · Yr 3 · DOB 9/1/2004 · St Louis, MO\nHS: Chaminade College Prep · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'3\"", "220", "L/R"], ["Kenast", "Tyler", "LHP", "#21 · Arkansas State · Yr 1 · DOB 5/6/2008 · Winter Springs, FL\nHS: Winter Springs HS\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'3\"", "185", "L/L"], ["Pritchard", "Wes", "LHP", "#22 · Arkansas State · Yr 3 · DOB 7/7/2006 · Meridian, MS\nHS: Lamar HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'4\"", "165", "L/L"], ["Herb", "Tyler", "INF", "#23 · Arkansas State · Yr 3 · DOB 2/24/2005 · Mount Dora, FL\nHS: TNXL Academy · Prior: FGCU\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'2\"", "170", "L/R"], ["Haley", "Austin", "INF/RHP", "#24 · Arkansas State · Yr 4 · DOB 1/3/2005 · Howe, TX\nHS: Howe HS · Prior: Kansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'0\"", "195", "R/R"], ["Manuel", "Cole", "C", "#25 · Arkansas State · Yr 4 · DOB 2/19/2004 · Clinton, MS\nHS: Clinton HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'0\"", "220", "R/R"], ["Ursery", "Ryan", "LHP", "#26 · Arkansas State · Yr 4 · DOB 11/18/2004 · White Hall, AR\nHS: White Hall HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'1\"", "190", "L/L"], ["Foxx", "Jalen", "OF", "#27 · Arkansas State · Yr 2 · DOB 11/6/2006 · Sanford, FL\nHS: TNXL Academy · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "6'1\"", "195", "R/L"], ["Redmon", "Noah", "RHP", "#30 · Arkansas State · Yr 3 · DOB 4/11/2006 · New Haven, IN\nHS: Heritage HS · Prior: Indiana Tech\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'3\"", "215", "R/R"], ["Maloney", "Collin", "RHP", "#31 · Arkansas State · Yr 4 · DOB 8/23/2004 · Lemay, MO\nHS: Mehlville HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'3\"", "210", "R/R"], ["Trimble", "James", "RHP", "#33 · Arkansas State · Yr 4 · DOB 1/9/2004 · Galveston, TX\nHS: Galveston Ball HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'0\"", "190", "R/R"], ["Woods", "Xavier", "LHP", "#34 · Arkansas State · Yr 3 · DOB 10/7/2005 · Cleveland, TX\nHS: Cleveland HS · Prior: LSU-Eunice JC\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'1\"", "185", "L/L"], ["Quiller", "Ashton", "OF", "#35 · Arkansas State · Yr 4 · DOB 11/3/2004 · Lake Charles, LA\nHS: Barbe HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "HITTER", "5'10\"", "190", "R/L"], ["Weimer", "Tyler", "RHP", "#36 · Arkansas State · Yr 3 · DOB 11/9/2005 · Raceland, LA\nHS: E.D. White Catholic HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'2\"", "205", "R/R"], ["Hibbard", "Jack", "RHP", "#37 · Arkansas State · Yr 3 · DOB 7/7/2005 · Memphis, TN\nHS: Arlington HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'0\"", "175", "R/R"], ["Simoneaux", "Cole", "LHP", "#38 · Arkansas State · Yr 3 · DOB 5/17/2006 · Napoleonville, LA\nHS: Assumption HS · Prior: Nicholls St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'2\"", "210", "L/L"], ["Huebner", "Cole", "RHP", "#40 · Arkansas State · Yr 4 · DOB 11/3/2003 · Edmonton, AB\nHS: Strathcona HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'3\"", "225", "R/R"], ["Telfer", "Tatem", "LHP", "#41 · Arkansas State · Yr 2 · DOB 1/23/2007 · Hedrick, IA\nHS: Mid-Prairie Community HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'1\"", "215", "L/L"], ["Allen", "Andrew", "RHP", "#44 · Arkansas State · Yr 3 · DOB 4/17/2006 · Alexandria, AL\nHS: Alexandria HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'2\"", "200", "R/R"], ["Tengler", "Ckyler", "RHP", "#45 · Arkansas State · Yr 5 · DOB 4/9/2004 · Searcy, AR\nHS: Searcy HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'5\"", "205", "R/R"], ["Leslie", "Will", "RHP", "#46 · Arkansas State · Yr 2 · DOB 3/6/2007 · Cabot, AR\nHS: Cabot HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'5\"", "190", "R/R"], ["Ashford", "Ryan", "LHP", "#47 · Arkansas State · Yr 3 · DOB 6/6/2005 · Lake Mary, FL\nHS: Lake Mary HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'2\"", "205", "L/L"], ["Tomlinson", "Houston", "RHP", "#48 · Arkansas State · Yr 3 · DOB 9/9/2005 · Spring, TX\nHS: Grand Oaks HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'0\"", "200", "R/R"], ["Collins", "Tate", "RHP", "#49 · Arkansas State · Yr 3 · DOB 7/6/2005 · Little Rock, AR\nHS: Little Rock Christian · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'3\"", "215", "R/R"], ["Erdmann", "Andrew", "RHP", "#51 · Arkansas State · Yr 4 · DOB 2/2/2005 · Twinsburg, OH\nHS: Walsh Jesuit HS · Prior: Arkansas St\nSource: Arkansas State Fall 2026 scout roster · entered 8/30/2026", "PITCHER", "6'4\"", "220", "R/R"]];
+var CU_KSU = [["Arther", "Adam", "LHP", "#41 · Kansas State · Yr 4 · DOB 11/29/2004 · Altadena, CA\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Baker", "Jackson", "RHP", "#32 · Kansas State · Yr 4 · DOB 7/24/2004 · Austin, TX\nPrior: Houston\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Bettis", "Max", "RHP", "#30 · Kansas State · Yr 2 · DOB 7/10/2006 · Topeka, KS\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Bettis", "Sam", "RHP", "#33 · Kansas State · Yr 2 · DOB 7/10/2006 · Topeka, KS\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Bolin", "Robby", "OF", "#11 · Kansas State · Yr 5 · DOB 7/21/2004 · Topeka, KS\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Bratspis", "Zander", "INF", "#27 · Kansas State · Yr 1 · DOB 8/1/2007 · Scottsdale, AZ\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Buckley", "Trenton", "RHP", "#7 · Kansas State · Yr 3 · DOB 5/4/2005 · Magnolia, TX\nPrior: Galveston CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Capece", "Connor", "C", "#10 · Kansas State · Yr 4 · DOB 6/19/2005 · Omaha, NE\nPrior: Creighton\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Clinkingbeard", "Cordell", "INF/RHP", "#4 · Kansas State · Yr 1 · DOB 3/14/2008 · Papillion, NE\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Dean", "Kaden", "LHP", "#0 · Kansas State · Yr 1 · DOB 7/4/2007 · Preston, OK\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Doty", "Stevie", "RHP", "#17 · Kansas State · Yr 3 · DOB 4/6/2006 · Dayton, OH\nPrior: McLennan CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Driffill", "Colin", "RHP", "#99 · Kansas State · Yr 1 · DOB 11/5/2007 · Elkhorn, NE\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["English", "Nick", "OF", "#8 · Kansas State · Yr 4 · DOB 5/25/2005 · Olathe, KS\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Evans", "Jalen", "INF", "#3 · Kansas State · Yr 4 · DOB 6/15/2005 · Lillington, NC\nPrior: Wingate\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Gartner", "Noah", "RHP", "#26 · Kansas State · Yr 2 · DOB 7/6/2006 · Omaha, NE\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Hamilton", "Ty", "OF", "#20 · Kansas State · Yr 4 · DOB 1/14/2004 · Ottawa, ONT, CAN\nPrior: Dodge City CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Harris", "Jacob", "OF", "#5 · Kansas State · Yr 5 · DOB 1/14/2002 · Grosse Pointe Farms, MI\nPrior: Johns Hopkins\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Horsman", "Kyler", "RHP/UTL", "#16 · Kansas State · Yr 4 · DOB 9/13/2004 · Manhattan, KS\nPrior: Barton CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Hulcher", "Jackson", "RHP", "#37 · Kansas State · Yr 4 · DOB 6/4/2005 · Ashburn, VA\nPrior: Delaware\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Jesperson", "Cooper", "RHP", "#31 · Kansas State · Yr 2 · DOB 11/17/2006 · Eau Claire, WI\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Jones", "Paul \"PJ\"", "1B", "#12 · Kansas State · Yr 3 · DOB 12/8/2005 · Lakeville, MN\nPrior: Maryland\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Karl", "Cadyn", "OF", "#2 · Kansas State · Yr 5 · DOB 8/24/2003 · Edmond, OK\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Lewis", "Donte", "RHP/OF", "#35 · Kansas State · Yr 3 · DOB 3/8/2006 · Pearland, TX\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Lewis", "Griffin", "RHP", "#9 · Kansas State · Yr 3 · DOB 4/3/2006 · Flower Mound, TX\nPrior: McLennan CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Meert", "Grant", "LHP", "#25 · Kansas State · Yr 4 · DOB 5/5/2005 · Ballwin, MO\nPrior: Johns Hopkins\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Nantais-Vlahovich", "Max", "RHP", "#50 · Kansas State · Yr 1 · DOB 6/10/2008 · Mississauga, ONT, CAN\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Pereira", "Joseph", "RHP", "#28 · Kansas State · Yr 1 · DOB 1/8/2008 · Etobicoke, ONT, CAN\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Quetschenbach", "Jack", "OF", "#14 · Kansas State · Yr 2 · DOB 5/25/2006 · Kansas City, MO\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Reich", "Jonah", "RHP", "#23 · Kansas State · Yr 5 · DOB 1/10/2004 · Kamuela, HI\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Schaefer", "Landon", "INF", "#24 · Kansas State · Yr 2 · DOB 8/24/2006 · Fayetteville, AR\nPrior: Arkansas\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Simpson", "Maddix", "INF", "#6 · Kansas State · Yr 3 · DOB 8/30/2005 · Lehigh Acres, FL\nPrior: Ohio State\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Smolinski", "Tyler", "INF", "#34 · Kansas State · Yr 3 · DOB 9/4/2005 · Gretna, NE\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Stufft", "Brayden", "C", "#13 · Kansas State · Yr 3 · DOB 9/28/2005 · Centennial, CO\nPrior: Northeast CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Timbrook", "Stocton", "RHP", "#18 · Kansas State · Yr 3 · DOB 12/6/2005 · Abilene, KS\nPrior: Cloud CC\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""], ["Vindiola", "Jett", "C", "#22 · Kansas State · Yr 1 · DOB 9/14/2007 · Weatherford, TX\nSource: K-State 2026-27 roster · entered 8/30/2026", "HITTER", "", "", ""], ["Westphal", "Grady", "RHP", "#15 · Kansas State · Yr 2 · DOB 7/19/2006 · Leawood, KS\nPrior: Texas\nSource: K-State 2026-27 roster · entered 8/30/2026", "PITCHER", "", "", ""]];
+var CU_BATCHES = [
+  { id:'dedupe-2026-08-30', kind:'cleanup', label:'Merge 16 duplicate players, fix 9 school names' },
+  { id:'ncaa-iowa-2026-08-30',  kind:'roster', cat:'NCAA', school:'University of Iowa',       label:'University of Iowa', players:CU_IOWA },
+  { id:'ncaa-arkst-2026-08-30', kind:'roster', cat:'NCAA', school:'Arkansas State University', label:'Arkansas State', players:CU_ARK },
+  { id:'ncaa-ksu-2026-08-30',   kind:'roster', cat:'NCAA', school:'Kansas State University',   label:'Kansas State', players:CU_KSU }
+];
+/* ---------- pending roster updates ----------
+   Each entry in CU_BATCHES is applied at most once per device, tracked by id in
+   ds_batches. Applying is also idempotent on its own: a merge whose duplicates
+   are already gone does nothing, and a roster only adds players not already
+   filed under that school. So a device that misses an update catches up later,
+   and one that runs it twice is unharmed. */
+function cuApplied(){
+  try{ var a = JSON.parse(lsGet('ds_batches') || '[]'); return (a && a.length) ? a : []; }catch(e){ return []; }
+}
+function cuMark(id){
+  var a = cuApplied();
+  if(a.indexOf(id) < 0){ a.push(id); lsSet('ds_batches', JSON.stringify(a)); }
+}
+function cuFind(r, cat, sc, fn, ln){
+  var list = ((r[cat] || {})[sc]) || [];
+  for(var i = 0; i < list.length; i++){
+    if(list[i] && list[i].fn === fn && list[i].ln === ln) return i;
+  }
+  return -1;
+}
+function cuNum(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
+function cuBestGrades(a, b){
+  a = a || {}; b = b || {};
+  Object.keys(b).forEach(function(k){
+    var vb = b[k]; if(!vb) return;
+    if(!a[k]){ a[k] = { p: vb.p || '', f: vb.f || '' }; return; }
+    ['p','f'].forEach(function(s){
+      var na = cuNum(a[k][s]), nb = cuNum(vb[s]);
+      if(nb !== null && (na === null || nb > na)) a[k][s] = vb[s];
+    });
+  });
+  return a;
+}
+function cuNotes(chunks){
+  var parts = [], seen = {};
+  chunks.forEach(function(c){
+    String(c || '').split(/\n\s*(?:-{3,}|\u2014(?:\s*\u2014){1,})\s*\n/).forEach(function(piece){
+      piece = piece.replace(/^\s+|\s+$/g, '');
+      if(!piece) return;
+      var key = piece.replace(/\s+/g, ' ').toLowerCase();
+      if(seen[key]) return;
+      seen[key] = 1; parts.push(piece);
+    });
+  });
+  return parts.join('\n\n\u2014 \u2014 \u2014\n\n');
+}
+function cuLonger(a, b){
+  a = (a || '').replace(/^\s+|\s+$/g, ''); b = (b || '').replace(/^\s+|\s+$/g, '');
+  if(!a) return b; if(!b) return a;
+  return a.length >= b.length ? a : b;
+}
+/* how much real work a batch still has on THIS device */
+function cuWork(r, b){
+  if(b.kind === 'cleanup'){
+    var n = 0;
+    CU_GROUPS.forEach(function(g){
+      var found = 0;
+      g.m.forEach(function(mm){ if(cuFind(r, 'HS', mm[0], mm[1], mm[2]) >= 0) found++; });
+      if(found > 1) n++;
+    });
+    Object.keys(CU_SCHOOLS).forEach(function(o){ if(o !== CU_SCHOOLS[o] && r.HS[o]) n++; });
+    return n;
+  }
+  var have = ((r[b.cat] || {})[b.school]) || [];
+  var idx = {};
+  have.forEach(function(p){ idx[p.ln + '|' + p.fn] = 1; });
+  var add = 0;
+  b.players.forEach(function(a){ if(!idx[a[0] + '|' + a[1]]) add++; });
+  return add;
+}
+function cuPendingBatches(r){
+  var done = cuApplied();
+  return CU_BATCHES.filter(function(b){
+    return done.indexOf(b.id) < 0 && cuWork(r, b) > 0;
+  });
+}
+/* the August duplicate merge */
+function cuApplyCleanup(r, lu, remap){
+  var merged = 0, schoolsFixed = 0, missing = [];
+  CU_GROUPS.forEach(function(g){
+    var recs = [];
+    g.m.forEach(function(mm){
+      var i = cuFind(r, 'HS', mm[0], mm[1], mm[2]);
+      if(i < 0){ missing.push(mm[1] + ' ' + mm[2] + ' @ ' + mm[0]); return; }
+      recs.push({ sc: mm[0], fn: mm[1], ln: mm[2], p: r.HS[mm[0]][i] });
+    });
+    if(recs.length < 2) return;
+    var si = 0;
+    for(var j = 0; j < recs.length; j++){
+      if(recs[j].sc === g.sc && recs[j].fn === g.fn && recs[j].ln === g.ln){ si = j; break; }
+    }
+    var m = JSON.parse(JSON.stringify(recs[si].p));
+    m.fn = g.fn; m.ln = g.ln;
+    var notes = [recs[si].p.notes];
+    for(var k = 0; k < recs.length; k++){
+      if(k === si) continue;
+      var op = recs[k].p;
+      notes.push(op.notes);
+      m.grades = cuBestGrades(m.grades || {}, op.grades);
+      m.velos  = cuBestGrades(m.velos  || {}, op.velos);
+      m.pos    = cuLonger(m.pos, op.pos);
+      m.ptype  = m.ptype || op.ptype || '';
+      m.bio = m.bio || { ht: '', wt: '', bt: '' };
+      var ob = op.bio || {};
+      ['ht','wt','bt'].forEach(function(f){ m.bio[f] = cuLonger(m.bio[f], ob[f]); });
+      m.outcome = m.outcome || { role: '', qual: '', val: '' };
+      var oo = op.outcome || {};
+      ['role','qual','val'].forEach(function(f){ m.outcome[f] = m.outcome[f] || oo[f] || ''; });
+      m.h1st = m.h1st || [];
+      (op.h1st || []).forEach(function(t){ if(m.h1st.indexOf(t) < 0) m.h1st.push(t); });
+      m.banked = (m.banked || []).concat(op.banked || []);
+      if((op.ink || []).length){
+        if(!(m.ink || []).length){ m.ink = op.ink.slice(); m.inkH = op.inkH || 700; }
+        else {
+          m.banked.push({ date: '2026-08-30', notes: 'Handwriting merged from duplicate record (' + recs[k].sc + ')',
+                          ink: op.ink.slice(), inkH: op.inkH || 700, grades: {}, velos: {},
+                          outcome: { role: '', qual: '', val: '' }, h1st: [], bio: { ht: '', wt: '', bt: '' } });
+          m.inkH = Math.max(m.inkH || 700, op.inkH || 700);
+        }
+      }
+    }
+    m.notes = cuNotes(notes);
+    m.banked.sort(function(a, b){ return String(a.date || '').localeCompare(String(b.date || '')); });
+    recs.forEach(function(rec){
+      var i2 = cuFind(r, 'HS', rec.sc, rec.fn, rec.ln);
+      if(i2 >= 0) r.HS[rec.sc].splice(i2, 1);
+      remap.push({ sc: rec.sc, ln: rec.ln, fn: rec.fn, nsc: g.sc, nln: g.ln, nfn: g.fn });
+    });
+    if(!r.HS[g.sc]) r.HS[g.sc] = [];
+    r.HS[g.sc].push(normPlayer(m));
+    merged++;
+  });
+  Object.keys(CU_SCHOOLS).forEach(function(oldSc){
+    var newSc = CU_SCHOOLS[oldSc];
+    if(oldSc === newSc || !r.HS[oldSc]) return;
+    if(!r.HS[newSc]) r.HS[newSc] = [];
+    (r.HS[oldSc] || []).forEach(function(p){
+      r.HS[newSc].push(p);
+      remap.push({ sc: oldSc, ln: p.ln, fn: p.fn, nsc: newSc, nln: p.ln, nfn: p.fn });
+    });
+    delete r.HS[oldSc];
+    schoolsFixed++;
+  });
+  Object.keys(r.HS).forEach(function(sc){ if(!r.HS[sc].length) delete r.HS[sc]; });
+  return { merged: merged, schools: schoolsFixed, missing: missing };
+}
+/* adds a college roster, skipping anyone already filed under that school */
+function cuApplyRoster(r, b){
+  r[b.cat] = r[b.cat] || {};
+  var list = r[b.cat][b.school] || [];
+  var idx = {};
+  list.forEach(function(p){ idx[p.ln + '|' + p.fn] = 1; });
+  var added = 0;
+  b.players.forEach(function(a){
+    if(idx[a[0] + '|' + a[1]]) return;
+    list.push(normPlayer({ ln: a[0], fn: a[1], pos: a[2], notes: a[3], grades: {}, h1st: [], velos: {},
+      outcome: { role: '', qual: '', val: '' }, ptype: a[4],
+      bio: { ht: a[5], wt: a[6], bt: a[7] }, ink: [], inkH: 700, banked: [] }));
+    added++;
+  });
+  if(list.length) r[b.cat][b.school] = list;
+  return added;
+}
+function runPending(){
+  var r  = JSON.parse(JSON.stringify(rosterLoad()));
+  var lu = JSON.parse(JSON.stringify(luLoad()));
+  var strokesBefore = countRoster(r).ink;
+  var todo = cuPendingBatches(r);
+  if(!todo.length){ toast('Nothing pending \u2014 this device is already up to date.'); return; }
+  var lines = [], remap = [], missing = [];
+  todo.forEach(function(b){
+    if(b.kind === 'cleanup'){
+      var st = cuApplyCleanup(r, lu, remap);
+      lines.push(st.merged + ' duplicates merged, ' + st.schools + ' school names fixed');
+      missing = missing.concat(st.missing);
+    } else {
+      var n = cuApplyRoster(r, b);
+      lines.push(b.label + ': ' + n + ' players added');
+    }
+  });
+  var luFixed = 0;
+  lu.forEach(function(l){
+    ['players','pitchers'].forEach(function(side){
+      (l[side] || []).forEach(function(ref){
+        if(!ref) return;
+        for(var i = 0; i < remap.length; i++){
+          var m2 = remap[i];
+          if(ref.cat === 'HS' && ref.sc === m2.sc && ref.ln === m2.ln && ref.fn === m2.fn){
+            ref.sc = m2.nsc; ref.ln = m2.nln; ref.fn = m2.nfn; luFixed++; return;
+          }
+        }
+      });
+    });
+  });
+  var after = countRoster(r);
+  if(after.ink < strokesBefore){
+    toast('Update cancelled \u2014 strokes would have dropped from ' + strokesBefore + ' to ' + after.ink + '. Nothing was changed.');
+    return;
+  }
+  rosterSave(r);
+  luSave(lu);
+  todo.forEach(function(b){ cuMark(b.id); });
+  ui.school = null; ui.player = null;
+  updateCleanupBtn();
+  renderRoster();
+  showPane('players');
+  askConfirm(
+    'Update finished.\n\n' + lines.join('\n') +
+    (luFixed ? '\n' + luFixed + ' lineup slots repointed' : '') +
+    '\n\nNow: ' + after.players + ' players \u00B7 ' + after.schools + ' schools \u00B7 ' + after.ink + ' strokes\n' +
+    'Strokes before: ' + strokesBefore + (after.ink === strokesBefore ? ' (none lost)' : '') +
+    (missing.length ? '\n\nSkipped, not found here:\n' + missing.join('\n') : ''),
+    function(){}, 'OK'
+  );
+}
+function updateCleanupBtn(){
+  var b = $('cleanupBtn');
+  if(!b) return;
+  var todo = cuPendingBatches(rosterLoad());
+  b.classList.toggle('offscreen', todo.length === 0);
+  if(todo.length){
+    b.textContent = '\u2726 Apply ' + todo.length + ' pending update' + (todo.length === 1 ? '' : 's');
+  }
+}
+$('cleanupBtn').addEventListener('click', function(){
+  var r = rosterLoad();
+  var todo = cuPendingBatches(r);
+  if(!todo.length){ toast('Nothing pending \u2014 this device is already up to date.'); return; }
+  var c = countRoster(r);
+  var list = todo.map(function(b){ return '\u2022 ' + b.label + ' (' + cuWork(r, b) + ')'; }).join('\n');
+  askConfirm(
+    'Apply these updates to this device?\n\n' + list +
+    '\n\nNow: ' + c.players + ' players \u00B7 ' + c.schools + ' schools \u00B7 ' + c.ink + ' strokes\n\n' +
+    'A snapshot is taken first, so this can be undone.',
+    function(){ snapSave(); runPending(); },
+    'Apply updates'
+  );
+});
+/* a device that already ran the original one-tap cleanup shouldn't redo it */
+(function(){
+  if(lsGet('ds_cleanup1') === 'done'){ cuMark('dedupe-2026-08-30'); cuMark('ncaa-iowa-2026-08-30'); }
+  updateCleanupBtn();
+})();
+
 $('restoreInput').addEventListener('change', function(e){
   var f = e.target.files && e.target.files[0];
   e.target.value = '';
