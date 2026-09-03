@@ -560,7 +560,7 @@
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
-  <p class="fine">Dodger Scouting v29</p>
+  <p class="fine">Dodger Scouting v30</p>
   </div>
 </div>
 
@@ -1355,6 +1355,12 @@ function copyText(text){
 var ui = { pane: '', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null, lineups: false, lineupId: null, lineupNav: null, pickSlot: null };
 var PANES = ['create', 'players', 'pref', 'card', 'focus', 'velo'];
 function showPane(name){
+  /* drop focus before switching screens — a focused field leaves iPadOS's
+     floating undo/redo palette parked on top of the app */
+  try {
+    var ae = document.activeElement;
+    if(ae && ae !== document.body && ae.blur) ae.blur();
+  } catch(e){}
   ui.pane = name;
   if(ui.swTimer){ clearInterval(ui.swTimer); ui.swTimer = null; }
   PANES.forEach(function(pn){
@@ -5338,7 +5344,7 @@ setAudio(audioPref);
 $('createBtn').addEventListener('click', function(){
   if(busy) return;
   var nm = playerLine();
-  if(!nm){ toast('Add the player\u2019s name first.'); lastI.focus(); return; }
+  if(!nm){ toast('Add the player\u2019s name first.'); return; }
   if(!clips.length){ toast('Add at least one video clip.'); return; }
   for(var i = 0; i < clips.length; i++){
     if(!clips[i].dur || !isFinite(clips[i].dur)){
