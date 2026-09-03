@@ -407,7 +407,7 @@
     <img class="badge" src="dodger-stitch-icon.png" alt="Dodger Scouting logo" width="46" height="46">
     <div>
       <div class="wordmark">Dodger Scouting</div>
-      <div class="tag">Shoot · Stitch · Grade · Share</div>
+      <div class="tag">Shoot · Stitch · Grade · Share · v32</div>
     </div>
   </div>
   <div class="stitch"></div>
@@ -560,7 +560,7 @@
 
   <button id="createBtn" class="primary big">Create video</button>
   <p class="fine">Building takes about as long as the footage itself.<br>Keep this screen open while it works.</p>
-  <p class="fine">Dodger Scouting v30</p>
+  <p class="fine">Dodger Scouting v32</p>
   </div>
 </div>
 
@@ -5595,7 +5595,9 @@ document.addEventListener('visibilitychange', function(){
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(){});
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      try { reg.update(); } catch(e){}
+    }).catch(function(){});
   });
 }
 
@@ -6030,6 +6032,19 @@ function renderVelo(){
   renderVeloList();
 }
 /* ================ end 2026 Velocity ================ */
+
+/* Never sit on a focused text field: iPadOS keeps its floating undo/redo palette
+   on screen for as long as one is focused, even with no keyboard showing. */
+document.addEventListener('pointerdown', function(e){
+  var t = e.target;
+  if(t && t.closest && t.closest('input, textarea, select, label, .inkWrap')) return;
+  var ae = document.activeElement;
+  if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.blur) ae.blur();
+}, true);
+window.addEventListener('pagehide', function(){
+  var ae = document.activeElement;
+  if(ae && ae.blur) ae.blur();
+});
 
 /* Open on + PLAYER every time (must be inside this IIFE) */
 try {
