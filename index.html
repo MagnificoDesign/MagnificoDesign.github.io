@@ -1025,6 +1025,7 @@ function mergePlayerInto(hit, p){
     hit.ink.push(st);
   });
   hit.inkH = Math.max(hit.inkH || 700, p.inkH || 700);
+  hit.num = hit.num || p.num || '';
   hit.banked = hit.banked || [];
   var haveB = {};
   hit.banked.forEach(function(bk){ haveB[bk.id || (bk.date + '|' + (bk.notes || '').slice(0, 24))] = 1; });
@@ -1103,6 +1104,7 @@ var QUAL_OPTS = ['Poor','Fair','Good','Excellent'];
 var VALUE_OPTS = ['50K','150K','250K','400K','500K','750K','1M','1.25M','1.5M','2M','2.5M','3M','5M'];
 function normPlayer(p){
   p.ln = p.ln || ''; p.fn = p.fn || ''; p.pos = p.pos || '';
+  p.num = (p.num === 0 || p.num) ? String(p.num) : '';   /* jersey number, blank if unknown */
   p.notes = p.notes || '';
   p.grades = p.grades || {};
   Object.keys(p.grades).forEach(function(k2){
@@ -1439,7 +1441,7 @@ function playerRowEl(cat, sc, p, from, withDelete){
   var pk2 = document.createElement('button');
   pk2.className = 'playerPick';
   var nm = document.createElement('span');
-  nm.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  nm.textContent = (p.num ? '#' + p.num + '  ' : '') + p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
   pk2.appendChild(nm);
   var subBits = [];
   if(from === 'search') subBits.push(sc + ' (' + cat + ')');
@@ -2039,7 +2041,21 @@ function renderPlayersInner(){
     shareTextFile(sc + ' - Reports - ' + todayStr() + '.txt', parts.join('\n\n==============================\n\n'));
   });
   list.appendChild(expB);
-  players.forEach(function(p){
+  /* numbered rosters read like a program: by number, low to high.
+     Anyone without a number keeps their existing place, after the numbered guys. */
+  var ordered = players.slice();
+  if(ordered.some(function(p){ return p.num; })){
+    ordered = ordered.map(function(p, i){ return { p: p, i: i }; }).sort(function(a, b){
+      var na = a.p.num === '' ? null : parseInt(a.p.num, 10);
+      var nb = b.p.num === '' ? null : parseInt(b.p.num, 10);
+      if(na === null && nb === null) return a.i - b.i;
+      if(na === null) return 1;
+      if(nb === null) return -1;
+      if(na !== nb) return na - nb;
+      return a.i - b.i;
+    }).map(function(x){ return x.p; });
+  }
+  ordered.forEach(function(p){
     list.appendChild(playerRowEl(cat, sc, p, 'roster', true));
   });
 }
@@ -2071,7 +2087,7 @@ function rerenderCardInner(){
   var tt = $('cardTitle');
   tt.innerHTML = '';
   var t1 = document.createElement('span');
-  t1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  t1.textContent = (p.num ? '#' + p.num + '  ' : '') + p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
   var t2 = document.createElement('span');
   t2.className = 'sub';
   t2.textContent = sc + ' \u00B7 ' + cat;
@@ -4341,7 +4357,7 @@ function doReplaceAll(obj, inc){
     Object.keys(schools).forEach(function(sc){
       var list = (schools[sc] || []).filter(function(p){ return p && (p.ln || p.fn); }).map(function(p){
         return normPlayer({
-          ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '',
+          ln: p.ln || '', fn: p.fn || '', num: p.num || '', pos: p.pos || '', notes: p.notes || '',
           grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {},
           outcome: p.outcome || { role: '', qual: '', val: '' },
           ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' },
@@ -4441,7 +4457,8 @@ var CU_BATCHES = [
   { id:'ncaa-ksu-2026-08-30',   kind:'roster', cat:'NCAA', school:'Kansas State University',   label:'Kansas State', players:CU_KSU },
   { id:'hs-royals-2026-08-30',    kind:'multi',  cat:'HS', label:'Royals Scout Team players', players:CU_ROYALS },
   { id:'lu-royals-2026-08-30',    kind:'lineup', label:'Royals Scout Team lineup', lu:CU_ROYALS_LU },
-  { id:'ncaa-neb-2026-08-30',     kind:'roster', cat:'NCAA', school:'University of Nebraska', label:'Nebraska', players:CU_NEB }
+  { id:'ncaa-neb-2026-08-30',     kind:'roster', cat:'NCAA', school:'University of Nebraska', label:'Nebraska', players:CU_NEB },
+  { id:'jersey-numbers-2026-09-01', kind:'numbers', label:'Jersey numbers on college rosters' }
 ];
 /* ---------- pending roster updates ----------
    Each entry in CU_BATCHES is applied at most once per device, tracked by id in
@@ -4505,6 +4522,15 @@ function cuWork(r, b){
     });
     Object.keys(CU_SCHOOLS).forEach(function(o){ if(o !== CU_SCHOOLS[o] && r.HS[o]) n++; });
     return n;
+  }
+  if(b.kind === 'numbers'){
+    var n3 = 0;
+    Object.keys(r.NCAA || {}).forEach(function(sc){
+      (r.NCAA[sc] || []).forEach(function(p){
+        if(!p.num && /^#\s*\d{1,2}\s*\u00B7/.test(p.notes || '')) n3++;
+      });
+    });
+    return n3;
   }
   if(b.kind === 'multi'){
     var n2 = 0;
@@ -4650,6 +4676,25 @@ function cuApplyLineup(r, lu, b){
   lu.push({ id: 'lu-royals-' + Date.now(), name: b.lu.name, players: H, pitchers: P, temp: false });
   return H.length + P.length;
 }
+/* The college rosters were entered before numbers had a field of their own, so
+   the number is sitting at the front of each notes block as "#12 \u00B7 ...".
+   This lifts it out. It never invents a number and never edits the notes. */
+function cuApplyNumbers(r, b){
+  /* NCAA only. High school notes also open with a number, but that is an event
+     number (USA Baseball, Area Code Games) rather than the kid's school jersey,
+     so filling it in there would be misleading. */
+  var n = 0;
+  Object.keys(r.NCAA || {}).forEach(function(sc){
+    (r.NCAA[sc] || []).forEach(function(p){
+      if(p.num) return;
+      var m = /^#\s*(\d{1,2})\s*\u00B7/.exec(p.notes || '');
+      if(!m) return;
+      p.num = m[1];
+      n++;
+    });
+  });
+  return n;
+}
 function runPending(){
   var r  = JSON.parse(JSON.stringify(rosterLoad()));
   var lu = JSON.parse(JSON.stringify(luLoad()));
@@ -4662,6 +4707,8 @@ function runPending(){
       var st = cuApplyCleanup(r, lu, remap);
       lines.push(st.merged + ' duplicates merged, ' + st.schools + ' school names fixed');
       missing = missing.concat(st.missing);
+    } else if(b.kind === 'numbers'){
+      lines.push(b.label + ': ' + cuApplyNumbers(r, b) + ' numbers filled in');
     } else if(b.kind === 'multi'){
       lines.push(b.label + ': ' + cuApplyMulti(r, b) + ' players added');
     } else if(b.kind === 'lineup'){
@@ -4806,7 +4853,7 @@ $('restoreInput').addEventListener('change', function(e){
                  left out of this list, so any player who did NOT already exist
                  on the receiving device arrived with their handwriting and their
                  banked evaluations silently stripped. */
-              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', num: p.num || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
               added++;
             }
           });
