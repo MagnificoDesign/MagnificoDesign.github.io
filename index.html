@@ -81,6 +81,11 @@
   .playerRow{display:flex; gap:8px; margin-top:8px;}
   .playerPick{flex:1; justify-content:flex-start; text-align:left; font-weight:600; min-width:0;
     flex-direction:column; align-items:flex-start;}
+  .de-green{background:#DCF3E3 !important; border-color:#9AD4AC !important;}
+  .de-yellow{background:#FFF1BF !important; border-color:#EAD07A !important;}
+  .de-red{background:#FBDDE0 !important; border-color:#EFA3AA !important;}
+  .deTag{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.06em;
+    color:#0C5A2B; margin-left:8px; vertical-align:middle;}
   .pOutcome{display:block; font-size:11px; font-weight:700; letter-spacing:.05em;
     color:var(--blue); margin-top:2px;}
   .outcomeRow{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;}
@@ -1104,6 +1109,8 @@ function mergePlayerInto(hit, p){
   });
   hit.inkH = Math.max(hit.inkH || 700, p.inkH || 700);
   hit.num = hit.num || p.num || '';
+  hit.cls = hit.cls || p.cls || '';
+  hit.dob = hit.dob || p.dob || '';
   hit.banked = hit.banked || [];
   var haveB = {};
   hit.banked.forEach(function(bk){ haveB[bk.id || (bk.date + '|' + (bk.notes || '').slice(0, 24))] = 1; });
@@ -1180,9 +1187,66 @@ var VELO_KEYS = ['FB','CB','SL','CH','CU','OTH'];
 var ROLE_OPTS = ['R2','R3','R4','R5','R6','R7','R8'];
 var QUAL_OPTS = ['Poor','Fair','Good','Excellent'];
 var VALUE_OPTS = ['50K','150K','250K','400K','500K','750K','1M','1.25M','1.5M','2M','2.5M','3M','5M'];
+/* ---------- draft-eligibility colouring (NCAA only) ----------
+   One line to change each fall: a player born before this date is 21 inside the
+   next draft's window, so he is eligible regardless of class. For the July 2027
+   draft that is Aug 1, 2006. Next September, move it to 2007. */
+var DRAFT_AGE_CUTOFF = '2006-08-01';
+
+var CLASS_OPTS = ['FR','SO','RS-SO','JR','SR','5TH','GR'];
+/* Six rosters, six spellings: "3rd year", "Yr 3", "JRTR", "R-SO", "Jr.", "5th" */
+function normClass(v){
+  v = String(v || '').trim().toUpperCase().replace(/\./g, '');
+  if(!v) return '';
+  if(CLASS_OPTS.indexOf(v) >= 0) return v;
+  var rs = /^(RS|R)[\s-]?/.test(v);
+  var core = v.replace(/^(RS|R)[\s-]?/, '').replace(/TR$/, '').replace(/\s*(YEAR|YR)\s*/g, '').trim();
+  var m = {
+    'FR':'FR','FRESHMAN':'FR','1':'FR','1ST':'FR',
+    'SO':'SO','SOPH':'SO','SOPHOMORE':'SO','2':'SO','2ND':'SO',
+    'JR':'JR','JUNIOR':'JR','3':'JR','3RD':'JR',
+    'SR':'SR','SENIOR':'SR','4':'SR','4TH':'SR',
+    '5TH':'5TH','5':'5TH','FIFTH':'5TH',
+    'GR':'GR','GRAD':'GR','GRADUATE':'GR','6':'GR','6TH':'GR'
+  };
+  var out = m[core] || '';
+  if(out === 'SO' && rs) return 'RS-SO';
+  return out;
+}
+function normDob(v){
+  var m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(String(v || ''));
+  return m ? (parseInt(m[1], 10) + '/' + parseInt(m[2], 10) + '/' + m[3]) : '';
+}
+function dobBeforeCutoff(dob){
+  var m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(dob || '');
+  if(!m) return false;
+  var iso = m[3] + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
+  return iso < DRAFT_AGE_CUTOFF;
+}
+/* returns { color:'green'|'yellow'|'red'|'', tag:'' } */
+function draftStatus(cat, p){
+  if(cat !== 'NCAA' || !p) return { color: '', tag: '' };
+  var c = p.cls || '';
+  var green = (c === 'JR' || c === 'SR' || c === '5TH' || c === 'GR' || c === 'RS-SO');
+  if(green) return { color: 'green', tag: '' };
+  if(dobBeforeCutoff(p.dob)){
+    return { color: 'green', tag: (c === 'SO') ? 'SOPH DRAFT ELIGIBLE' : 'DRAFT ELIGIBLE' };
+  }
+  if(c === 'SO') return { color: 'yellow', tag: '' };
+  if(c === 'FR') return { color: 'red', tag: '' };
+  return { color: '', tag: '' };
+}
+function applyDraftTint(el, cat, p){
+  var d = draftStatus(cat, p);
+  el.classList.remove('de-green', 'de-yellow', 'de-red');
+  if(d.color) el.classList.add('de-' + d.color);
+  return d;
+}
 function normPlayer(p){
   p.ln = p.ln || ''; p.fn = p.fn || ''; p.pos = p.pos || '';
   p.num = (p.num === 0 || p.num) ? String(p.num) : '';   /* jersey number, blank if unknown */
+  p.cls = normClass(p.cls);                                /* FR SO RS-SO JR SR 5TH GR, or '' */
+  p.dob = normDob(p.dob);                                  /* M/D/YYYY, or '' */
   p.notes = p.notes || '';
   p.grades = p.grades || {};
   Object.keys(p.grades).forEach(function(k2){
@@ -1529,6 +1593,13 @@ function playerRowEl(cat, sc, p, from, withDelete){
   pk2.className = 'playerPick';
   var nm = document.createElement('span');
   nm.textContent = (p.num ? '#' + p.num + '  ' : '') + p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  var de = applyDraftTint(pk2, cat, p);
+  if(de.tag){
+    var tg = document.createElement('span');
+    tg.className = 'deTag';
+    tg.textContent = de.tag;
+    nm.appendChild(tg);
+  }
   pk2.appendChild(nm);
   var subBits = [];
   if(from === 'search') subBits.push(sc + ' (' + cat + ')');
@@ -1866,7 +1937,14 @@ function renderLineupEditor(list, r){
       var b = document.createElement('button');
       b.className = 'playerPick';
       var s1 = document.createElement('span');
-      s1.textContent = p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+      s1.textContent = (p.num ? '#' + p.num + '  ' : '') + p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+      var de2 = applyDraftTint(b, r2.cat, p);
+      if(de2.tag){
+        var tg2 = document.createElement('span');
+        tg2.className = 'deTag';
+        tg2.textContent = de2.tag;
+        s1.appendChild(tg2);
+      }
       var s2 = document.createElement('span');
       s2.className = 'pOutcome';
       var ol3 = outLine(p.outcome, true);
@@ -2175,6 +2253,17 @@ function rerenderCardInner(){
   tt.innerHTML = '';
   var t1 = document.createElement('span');
   t1.textContent = (p.num ? '#' + p.num + '  ' : '') + p.ln + ', ' + p.fn + (p.pos ? ' \u00B7 ' + p.pos : '');
+  var deC = draftStatus(cat, p);
+  if(deC.tag){
+    var tgC = document.createElement('span');
+    tgC.className = 'deTag';
+    tgC.textContent = deC.tag;
+    t1.appendChild(tgC);
+  }
+  if(deC.color){
+    t1.style.padding = '4px 10px'; t1.style.borderRadius = '9px'; t1.style.display = 'inline-block';
+    t1.classList.add('de-' + deC.color);
+  }
   var t2 = document.createElement('span');
   t2.className = 'sub';
   t2.textContent = sc + ' \u00B7 ' + cat;
@@ -2698,6 +2787,55 @@ function buildCardDOM(cat, sc, p){
     bioG.appendChild(cell);
   });
   card.appendChild(bioG);
+
+  if(cat === 'NCAA'){
+    var deG = document.createElement('div');
+    deG.className = 'bioGrid';
+    /* class */
+    var cCell = document.createElement('div'); cCell.className = 'gradeCell';
+    var cLb = document.createElement('label'); cLb.textContent = 'CLASS';
+    var cSel = document.createElement('select');
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '\u2014'; cSel.appendChild(o0);
+    CLASS_OPTS.forEach(function(c){
+      var o = document.createElement('option'); o.value = c; o.textContent = c; cSel.appendChild(o);
+    });
+    cSel.value = p.cls || '';
+    if(cSel.value) cSel.classList.add('vfilled');
+    cSel.addEventListener('change', function(){
+      var nv = cSel.value;
+      saveToPlayer(cat, sc, p, function(x){ x.cls = nv; });
+      rerenderCard();
+    });
+    cCell.appendChild(cLb); cCell.appendChild(cSel); deG.appendChild(cCell);
+    /* DOB */
+    var dCell = document.createElement('div'); dCell.className = 'gradeCell';
+    var dLb = document.createElement('label'); dLb.textContent = 'DOB';
+    var dIn = document.createElement('input');
+    dIn.type = 'text'; dIn.placeholder = '5/26/2006'; dIn.inputMode = 'numeric';
+    dIn.value = p.dob || '';
+    if(dIn.value) dIn.classList.add('vfilled');
+    dIn.addEventListener('input', function(){
+      dIn.classList.toggle('vfilled', !!dIn.value.trim());
+      var tk = k + '|dob';
+      clearTimeout(noteTimers[tk]);
+      var val = normDob(dIn.value);
+      noteTimers[tk] = setTimeout(function(){
+        saveToPlayer(cat, sc, p, function(x){ x.dob = val; });
+        if(val || !dIn.value.trim()) rerenderCard();
+      }, 600);
+    });
+    dCell.appendChild(dLb); dCell.appendChild(dIn); deG.appendChild(dCell);
+    /* status readout */
+    var sCell = document.createElement('div'); sCell.className = 'gradeCell';
+    var sLb = document.createElement('label'); sLb.textContent = 'DRAFT';
+    var sVal = document.createElement('div');
+    var deE = draftStatus(cat, p);
+    sVal.style.cssText = 'min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-weight:800;font-size:12px;letter-spacing:.05em;border:1px solid var(--line);';
+    sVal.textContent = deE.color === 'green' ? 'ELIGIBLE' : deE.color === 'yellow' ? 'NEXT YEAR' : deE.color === 'red' ? 'TWO YEARS' : '\u2014';
+    if(deE.color) sVal.classList.add('de-' + deE.color);
+    sCell.appendChild(sLb); sCell.appendChild(sVal); deG.appendChild(sCell);
+    card.appendChild(deG);
+  }
 
   var head = function(t2){
     var h2 = document.createElement('div');
@@ -4444,7 +4582,7 @@ function doReplaceAll(obj, inc){
     Object.keys(schools).forEach(function(sc){
       var list = (schools[sc] || []).filter(function(p){ return p && (p.ln || p.fn); }).map(function(p){
         return normPlayer({
-          ln: p.ln || '', fn: p.fn || '', num: p.num || '', pos: p.pos || '', notes: p.notes || '',
+          ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', pos: p.pos || '', notes: p.notes || '',
           grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {},
           outcome: p.outcome || { role: '', qual: '', val: '' },
           ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' },
@@ -4551,7 +4689,8 @@ var CU_BATCHES = [
   { id:'jersey-numbers-2026-09-01', kind:'numbers', label:'Jersey numbers on college rosters' },
   { id:'ncaa-wsu-2026-09-03',      kind:'roster', cat:'NCAA', school:'Wichita State University', label:'Wichita State', players:CU_WSU },
   { id:'ncaa-creighton-2026-09-03', kind:'roster', cat:'NCAA', school:'Creighton University', label:'Creighton', players:CU_CRE },
-  { id:'ncaa-uark-2026-09-08',     kind:'roster', cat:'NCAA', school:'University of Arkansas', label:'Arkansas', players:CU_UARK }
+  { id:'ncaa-uark-2026-09-08',     kind:'roster', cat:'NCAA', school:'University of Arkansas', label:'Arkansas', players:CU_UARK },
+  { id:'class-dob-2026-09-12',     kind:'classdob', label:'Class year & DOB on college rosters' }
 ];
 /* ---------- pending roster updates ----------
    Each entry in CU_BATCHES is applied at most once per device, tracked by id in
@@ -4615,6 +4754,19 @@ function cuWork(r, b){
     });
     Object.keys(CU_SCHOOLS).forEach(function(o){ if(o !== CU_SCHOOLS[o] && r.HS[o]) n++; });
     return n;
+  }
+  if(b.kind === 'classdob'){
+    var n4 = 0;
+    Object.keys(r.NCAA || {}).forEach(function(sc){
+      (r.NCAA[sc] || []).forEach(function(p){
+        if(p.cls && p.dob) return;
+        var first = String(p.notes || '').split('\n')[0].split('\u00B7').map(function(x){ return x.trim(); });
+        var hasC = !p.cls && (normClass(first[2] || '') || normClass(first[3] || ''));
+        var hasD = !p.dob && /DOB\s*\d{1,2}\/\d{1,2}\/\d{4}/.test(p.notes || '');
+        if(hasC || hasD) n4++;
+      });
+    });
+    return n4;
   }
   if(b.kind === 'numbers'){
     var n3 = 0;
@@ -4729,7 +4881,7 @@ function cuApplyRoster(r, b){
   var added = 0;
   b.players.forEach(function(a){
     if(idx[a[0] + '|' + a[1]]) return;
-    list.push(normPlayer({ ln: a[0], fn: a[1], num: a[8] || '', pos: a[2], notes: a[3], grades: {}, h1st: [], velos: {},
+    list.push(normPlayer({ ln: a[0], fn: a[1], num: a[8] || '', cls: a[9] || '', dob: a[10] || '', pos: a[2], notes: a[3], grades: {}, h1st: [], velos: {},
       outcome: { role: '', qual: '', val: '' }, ptype: a[4],
       bio: { ht: a[5], wt: a[6], bt: a[7] }, ink: [], inkH: 700, banked: [] }));
     added++;
@@ -4788,6 +4940,32 @@ function cuApplyNumbers(r, b){
   });
   return n;
 }
+/* Lifts class year and DOB out of the notes on NCAA players. Each roster wrote
+   its class token as the third \u00B7-separated item on line one ("3rd year",
+   "Yr 3", "JRTR", "R-SO", "Jr", "5th"), and DOB as "DOB M/D/YYYY" anywhere.
+   Never invents a value, never edits the notes, never touches HS. */
+function cuApplyClassDob(r, b){
+  var n = 0;
+  Object.keys(r.NCAA || {}).forEach(function(sc){
+    (r.NCAA[sc] || []).forEach(function(p){
+      var changed = false;
+      if(!p.cls){
+        var first = String(p.notes || '').split('\n')[0];
+        var parts = first.split('\u00B7').map(function(x){ return x.trim(); });
+        for(var i = 2; i < parts.length && i < 4; i++){
+          var c = normClass(parts[i]);
+          if(c){ p.cls = c; changed = true; break; }
+        }
+      }
+      if(!p.dob){
+        var m = /DOB\s*(\d{1,2}\/\d{1,2}\/\d{4})/.exec(p.notes || '');
+        if(m){ p.dob = normDob(m[1]); changed = true; }
+      }
+      if(changed) n++;
+    });
+  });
+  return n;
+}
 function runPending(){
   var r  = JSON.parse(JSON.stringify(rosterLoad()));
   var lu = JSON.parse(JSON.stringify(luLoad()));
@@ -4800,6 +4978,8 @@ function runPending(){
       var st = cuApplyCleanup(r, lu, remap);
       lines.push(st.merged + ' duplicates merged, ' + st.schools + ' school names fixed');
       missing = missing.concat(st.missing);
+    } else if(b.kind === 'classdob'){
+      lines.push(b.label + ': ' + cuApplyClassDob(r, b) + ' players filled in');
     } else if(b.kind === 'numbers'){
       lines.push(b.label + ': ' + cuApplyNumbers(r, b) + ' numbers filled in');
     } else if(b.kind === 'multi'){
@@ -4946,7 +5126,7 @@ $('restoreInput').addEventListener('change', function(e){
                  left out of this list, so any player who did NOT already exist
                  on the receiving device arrived with their handwriting and their
                  banked evaluations silently stripped. */
-              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', num: p.num || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
               added++;
             }
           });
