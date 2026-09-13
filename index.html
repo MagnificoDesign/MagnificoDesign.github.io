@@ -146,6 +146,22 @@
     padding:4px 3px; line-height:1.15;
     background:#fff; border:1px solid var(--line); color:var(--dim); border-radius:12px;}
   @media (max-width:400px){ .tabs{gap:5px;} .tab{font-size:10.5px; letter-spacing:.02em;} }
+  /* six tabs won't fit a phone in one row: let the bar swipe sideways */
+  @media (max-width:560px){
+    .tabs{overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; scrollbar-width:none; padding-bottom:2px;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{flex:0 0 auto; padding:4px 13px; white-space:nowrap;}
+    .backTab{position:sticky; left:0; z-index:2; flex:0 0 48px;}
+  }
+  .rptRow{display:flex; gap:8px; align-items:stretch; margin-bottom:8px;}
+  .rptRow .playerRow{flex:1; margin:0;}
+  .rptRow .playerRow .playerPick{width:100%;}
+  .rptDone{flex:0 0 52px; border-radius:11px; border:1px solid var(--line); background:#fff; font-size:20px; font-weight:800; color:var(--green,#12813F);}
+  .rptToggle{display:flex; align-items:center; gap:10px; width:100%; min-height:48px; margin:0 0 10px; padding:0 14px;
+    border-radius:12px; border:1px solid var(--line); background:#fff; font-size:15px; font-weight:700; color:var(--ink); text-align:left;}
+  .rptToggle .box{width:22px; height:22px; border-radius:6px; border:2px solid var(--blue); display:flex; align-items:center; justify-content:center; font-size:15px; color:#fff; flex:0 0 22px;}
+  .rptToggle.on{background:#FFF1BF; border-color:#EAD07A;}
+  .rptToggle.on .box{background:var(--blue);}
   .backTab{flex:0 0 60px; font-size:20px; font-weight:800;}
   .muSub{margin-top:16px;}
   .tab.sel{background:var(--blue); border-color:var(--blue); color:#fff;}
@@ -426,6 +442,7 @@
   <button id="tabPref" class="tab">PREF</button>
   <button id="tabFocus" class="tab">TODAY’S FOCUS</button>
   <button id="tabVelo" class="tab">2026 VELOCITY</button>
+  <button id="tabReports" class="tab">REPORTS</button>
 </nav>
 
 <div id="paneCreate">
@@ -489,6 +506,14 @@
     <button id="csvBtn" class="ghost big">Export spreadsheet (CSV)</button>
     <button id="recoverBtn" class="ghost big">🔎 Storage recovery scan</button>
     <input type="file" id="restoreInput" accept=".json,application/json,text/plain" class="offscreen">
+  </section>
+</div>
+
+<div id="paneReports" class="hidden">
+  <section class="card">
+    <p class="eyebrow">Unfinished Reports</p>
+    <p class="qhint" style="margin-top:0">Players you’ve flagged on their card as still needing a write-up. Oldest first. Tap ✓ when the report is done.</p>
+    <div id="reportsList"></div>
   </section>
 </div>
 
@@ -1118,6 +1143,8 @@ function mergePlayerInto(hit, p){
   hit.num = hit.num || p.num || '';
   hit.cls = hit.cls || p.cls || '';
   hit.dob = hit.dob || p.dob || '';
+  if((p.rptOn || '') > (hit.rptOn || '')) hit.rptOn = p.rptOn;
+  if((p.rptOff || '') > (hit.rptOff || '')) hit.rptOff = p.rptOff;
   hit.banked = hit.banked || [];
   var haveB = {};
   hit.banked.forEach(function(bk){ haveB[bk.id || (bk.date + '|' + (bk.notes || '').slice(0, 24))] = 1; });
@@ -1245,6 +1272,7 @@ function draftStatus(cat, p){
   if(c === 'FR') return { color: 'red', tag: '' };
   return { color: '', tag: '' };
 }
+function reportPending(p){ return !!(p && p.rptOn && p.rptOn > (p.rptOff || '')); }
 function applyDraftTint(el, cat, p){
   var d = draftStatus(cat, p);
   el.classList.remove('de-green', 'de-yellow', 'de-red');
@@ -1255,6 +1283,11 @@ function normPlayer(p){
   p.ln = p.ln || ''; p.fn = p.fn || ''; p.pos = p.pos || '';
   p.num = (p.num === 0 || p.num) ? String(p.num) : '';   /* jersey number, blank if unknown */
   p.cls = normClass(p.cls);                                /* FR SO RS-SO JR SR 5TH GR, or '' */
+  /* Unfinished report flag, kept as two timestamps so that clearing it on one
+     device and syncing with another that still has it set resolves correctly:
+     whichever happened later wins. */
+  p.rptOn = p.rptOn || '';
+  p.rptOff = p.rptOff || '';
   p.dob = normDob(p.dob);                                  /* M/D/YYYY, or '' */
   p.notes = p.notes || '';
   p.grades = p.grades || {};
@@ -1426,7 +1459,7 @@ function copyText(text){
 
 /* ---------- navigation ---------- */
 var ui = { pane: '', cat: null, school: null, player: null, back: 'players', pref: false, swTimer: null, lineups: false, lineupId: null, lineupNav: null, pickSlot: null };
-var PANES = ['create', 'players', 'pref', 'card', 'focus', 'velo'];
+var PANES = ['create', 'players', 'pref', 'card', 'focus', 'velo', 'reports'];
 function showPane(name){
   /* drop focus before switching screens — a focused field leaves iPadOS's
      floating undo/redo palette parked on top of the app */
@@ -1446,6 +1479,10 @@ function showPane(name){
   var tr = $('tabPref'); if(tr) tr.classList.toggle('sel', hl === 'pref');
   var tf = $('tabFocus'); if(tf) tf.classList.toggle('sel', hl === 'focus');
   var tv = $('tabVelo'); if(tv) tv.classList.toggle('sel', hl === 'velo');
+  var tR = $('tabReports'); if(tR) tR.classList.toggle('sel', hl === 'reports');
+  if(name === 'reports') renderReportsPane();
+  /* on a phone the tab bar scrolls; keep the active tab in view */
+  try{ var selTab = document.querySelector('.tabs .tab.sel'); if(selTab && selTab.scrollIntoView) selTab.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }catch(e){}
   if(name === 'players') renderPlayers();
   if(name === 'pref') renderPrefPane();
   if(name === 'focus') renderFocus();
@@ -1458,6 +1495,7 @@ $('tabPlayers').addEventListener('click', function(){ showPane('players'); });
 $('tabPref').addEventListener('click', function(){ showPane('pref'); });
 $('tabFocus').addEventListener('click', function(){ showPane('focus'); });
 $('tabVelo').addEventListener('click', function(){ showPane('velo'); });
+$('tabReports').addEventListener('click', function(){ showPane('reports'); });
 
 /* full-history back: every screen change is a step you can walk back through */
 var navStack = [];
@@ -1611,7 +1649,7 @@ function playerRowEl(cat, sc, p, from, withDelete){
   }
   pk2.appendChild(nm);
   var subBits = [];
-  if(from === 'search') subBits.push(sc + ' (' + cat + ')');
+  if(from === 'search' || from === 'reports') subBits.push(sc + ' (' + cat + ')');
   var ol = outLine(p.outcome, true);
   if(ol) subBits.push('Predicted Outcome \u00B7 ' + ol);
   if(subBits.length){
@@ -1622,7 +1660,7 @@ function playerRowEl(cat, sc, p, from, withDelete){
   }
   pk2.addEventListener('click', function(){
     if(assignIfPicking(cat, sc, p)) return;
-    openCard(cat, sc, p, 'players');
+    openCard(cat, sc, p, from === 'reports' ? 'reports' : 'players');
   });
   row.appendChild(pk2);
   if(withDelete){
@@ -2030,6 +2068,59 @@ function renderLineupEditor(list, r){
   list.appendChild(delB);
 }
 /* Pref List owns its own tab, so it renders into #prefList with no back link. */
+function renderReportsPane(){
+  var list = $('reportsList');
+  if(!list) return;
+  list.innerHTML = '';
+  var r = rosterLoad(), items = [];
+  CATS.forEach(function(cat){
+    Object.keys(r[cat] || {}).forEach(function(sc){
+      (r[cat][sc] || []).forEach(function(p){ if(reportPending(p)) items.push({ cat: cat, sc: sc, p: p }); });
+    });
+  });
+  items.sort(function(a, b){ return String(a.p.rptOn).localeCompare(String(b.p.rptOn)); });
+  if(!items.length){
+    var none = document.createElement('p');
+    none.className = 'qhint';
+    none.textContent = 'Nothing waiting. Flag a player from his card and he\u2019ll show up here.';
+    list.appendChild(none);
+    navTick();
+    return;
+  }
+  var ch = document.createElement('div');
+  ch.className = 'catHead';
+  ch.textContent = items.length + ' to write';
+  list.appendChild(ch);
+  items.forEach(function(it){
+    var row = document.createElement('div');
+    row.className = 'rptRow';
+    var b = playerRowEl(it.cat, it.sc, it.p, 'reports', false);
+    var when = new Date(it.p.rptOn);
+    if(!isNaN(when.getTime())){
+      var days = Math.floor((Date.now() - when.getTime()) / 86400000);
+      var ago = days <= 0 ? 'flagged today' : days === 1 ? 'flagged yesterday' : 'flagged ' + days + ' days ago';
+      var sub = b.querySelector('.pOutcome');
+      if(sub){ sub.textContent = sub.textContent + '  \u00B7  ' + ago; }
+      else {
+        var s2 = document.createElement('span'); s2.className = 'pOutcome'; s2.textContent = ago;
+        var pk = b.querySelector('.playerPick'); if(pk) pk.appendChild(s2);
+      }
+    }
+    var done = document.createElement('button');
+    done.className = 'rptDone';
+    done.textContent = '\u2713';
+    done.setAttribute('aria-label', 'Report done');
+    done.addEventListener('click', function(){
+      var now = new Date().toISOString();
+      saveToPlayer(it.cat, it.sc, it.p, function(x){ x.rptOff = now; });
+      toast('Report marked done \u2014 ' + it.p.fn + ' ' + it.p.ln + '.');
+      renderReportsPane();
+    });
+    row.appendChild(b); row.appendChild(done);
+    list.appendChild(row);
+  });
+  navTick();
+}
 function renderPrefPane(){
   var list = $('prefList');
   if(!list) return;
@@ -2737,6 +2828,25 @@ function buildCardDOM(cat, sc, p){
   var k = pKey(cat, sc, p);
   var card = document.createElement('div');
   card.className = 'scoutCard';
+
+  /* Unfinished report flag */
+  var rpt = document.createElement('button');
+  rpt.className = 'rptToggle' + (reportPending(p) ? ' on' : '');
+  var rbox = document.createElement('span'); rbox.className = 'box'; rbox.textContent = reportPending(p) ? '\u2713' : '';
+  var rlbl = document.createElement('span');
+  rlbl.textContent = reportPending(p) ? 'Report still to write \u2014 tap when done' : 'Flag: report still to write';
+  rpt.appendChild(rbox); rpt.appendChild(rlbl);
+  rpt.addEventListener('click', function(){
+    var now = new Date().toISOString();
+    var turningOn = !reportPending(p);
+    saveToPlayer(cat, sc, p, function(x){ if(turningOn) x.rptOn = now; else x.rptOff = now; });
+    if(turningOn) p.rptOn = now; else p.rptOff = now;
+    rpt.classList.toggle('on', turningOn);
+    rbox.textContent = turningOn ? '\u2713' : '';
+    rlbl.textContent = turningOn ? 'Report still to write \u2014 tap when done' : 'Flag: report still to write';
+    toast(turningOn ? 'Added to Unfinished Reports.' : 'Report marked done.');
+  });
+  card.appendChild(rpt);
 
   var mkVid = document.createElement('button');
   mkVid.className = 'primary big';
@@ -4593,7 +4703,7 @@ function doReplaceAll(obj, inc){
     Object.keys(schools).forEach(function(sc){
       var list = (schools[sc] || []).filter(function(p){ return p && (p.ln || p.fn); }).map(function(p){
         return normPlayer({
-          ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', pos: p.pos || '', notes: p.notes || '',
+          ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', rptOn: p.rptOn || '', rptOff: p.rptOff || '', pos: p.pos || '', notes: p.notes || '',
           grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {},
           outcome: p.outcome || { role: '', qual: '', val: '' },
           ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' },
@@ -5141,7 +5251,7 @@ $('restoreInput').addEventListener('change', function(e){
                  left out of this list, so any player who did NOT already exist
                  on the receiving device arrived with their handwriting and their
                  banked evaluations silently stripped. */
-              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
+              r[cat][sc].push(normPlayer({ ln: p.ln || '', fn: p.fn || '', num: p.num || '', cls: p.cls || '', dob: p.dob || '', rptOn: p.rptOn || '', rptOff: p.rptOff || '', pos: p.pos || '', notes: p.notes || '', grades: p.grades || {}, h1st: (p.h1st || []).slice(), velos: p.velos || {}, outcome: p.outcome || { role: '', qual: '', val: '' }, ptype: p.ptype || '', bio: p.bio || { ht: '', wt: '', bt: '' }, ink: (p.ink || []).slice(), inkH: p.inkH || 700, banked: (p.banked || []).slice() }));
               added++;
             }
           });
