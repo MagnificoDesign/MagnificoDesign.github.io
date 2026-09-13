@@ -449,6 +449,7 @@
     <div class="btnRow catRow">
       <button id="cpHS" class="grow qual sel">HS</button>
       <button id="cpNCAA" class="grow qual">NCAA</button>
+      <button id="cpNJCAA" class="grow qual">NJCAA</button>
     </div>
     <button id="cpSaveBtn" class="primary big">Save to roster</button>
   </section>
@@ -526,6 +527,7 @@
     <div class="btnRow catRow" style="display:none">
       <button id="catHS" class="grow qual">HS</button>
       <button id="catNCAA" class="grow qual sel">NCAA</button>
+      <button id="catNJCAA" class="grow qual">NJCAA</button>
     </div>
     <label for="gameDate">Date</label>
     <input type="date" id="gameDate">
@@ -889,15 +891,13 @@ function todayStr(){
   var n = new Date();
   return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
 }
-var CATS = ['HS', 'NCAA'];
-function blankRoster(){ return { HS: {}, NCAA: {} }; }
+var CATS = ['HS', 'NCAA', 'NJCAA'];
+function blankRoster(){ var r = {}; CATS.forEach(function(c){ r[c] = {}; }); return r; }
 function rosterLoad(){
   try{
     var v2 = JSON.parse(lsGet('ds_roster2') || 'null');
     if(v2 && typeof v2 === 'object'){
-      if(!v2.HS) v2.HS = {};
-      if(!v2.NCAA) v2.NCAA = {};
-      return normRoster(v2);
+      return normRoster(v2);        /* normRoster fills in any missing category */
     }
   }catch(e){}
   try{
@@ -995,17 +995,24 @@ function updateBackupNag(){
   updateStoreMeter();
 }
 var rosterOpen = {}, notesOpen = {}, noteTimers = {}, moveOpen = {};
-var curCat = (lsGet('ds_cat') === 'HS') ? 'HS' : 'NCAA';
+var curCat = (CATS.indexOf(lsGet('ds_cat')) >= 0) ? lsGet('ds_cat') : 'NCAA';
 function setCat(c){
   curCat = c;
   lsSet('ds_cat', c);
   $('catHS').classList.toggle('sel', c === 'HS');
   $('catNCAA').classList.toggle('sel', c === 'NCAA');
+  $('catNJCAA').classList.toggle('sel', c === 'NJCAA');
 }
 $('catHS').addEventListener('click', function(){ setCat('HS'); });
 $('catNCAA').addEventListener('click', function(){ setCat('NCAA'); });
+$('catNJCAA').addEventListener('click', function(){ setCat('NJCAA'); });
 setCat(curCat);
 
+function catLabel(cat, long){
+  if(cat === 'HS') return long ? 'High School' : 'HIGH SCHOOL';
+  if(cat === 'NJCAA') return 'NJCAA';
+  return 'NCAA';
+}
 function pKey(cat, sc, p){ return cat + '|' + sc + '|' + p.ln.toLowerCase() + '|' + p.fn.toLowerCase(); }
 function sameName(a, b){
   return (a.ln || '').toLowerCase() === (b.ln || '').toLowerCase() &&
@@ -1225,7 +1232,9 @@ function dobBeforeCutoff(dob){
 }
 /* returns { color:'green'|'yellow'|'red'|'', tag:'' } */
 function draftStatus(cat, p){
-  if(cat !== 'NCAA' || !p) return { color: '', tag: '' };
+  if(!p) return { color: '', tag: '' };
+  if(cat === 'NJCAA') return { color: 'green', tag: '' };   /* all JUCO players are eligible */
+  if(cat !== 'NCAA') return { color: '', tag: '' };
   var c = p.cls || '';
   var green = (c === 'JR' || c === 'SR' || c === '5TH' || c === 'GR' || c === 'RS-SO');
   if(green) return { color: 'green', tag: '' };
@@ -2151,7 +2160,7 @@ function renderPlayersInner(){
     CATS.forEach(function(cat){
       var n = 0;
       Object.keys(r[cat] || {}).forEach(function(sc){ n += (r[cat][sc] || []).length; });
-      list.appendChild(navRow(cat === 'HS' ? 'HIGH SCHOOL' : 'NCAA', n + ' \u203A', function(){
+      list.appendChild(navRow(catLabel(cat, false), n + ' \u203A', function(){
         ui.cat = cat;
         renderPlayers();
       }));
@@ -2164,7 +2173,7 @@ function renderPlayersInner(){
     list.appendChild(backLink('All categories', function(){ ui.cat = null; renderPlayers(); }));
     var ch = document.createElement('div');
     ch.className = 'catHead';
-    ch.textContent = (ui.cat === 'HS') ? 'High School' : 'NCAA';
+    ch.textContent = catLabel(ui.cat, true);
     list.appendChild(ch);
     var schools = Object.keys(r[ui.cat] || {}).sort(function(a, b){
       return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
@@ -2172,7 +2181,7 @@ function renderPlayersInner(){
     if(!schools.length){
       var no2 = document.createElement('div');
       no2.className = 'qhint';
-      no2.textContent = 'No ' + (ui.cat === 'HS' ? 'high school' : 'NCAA') + ' players saved yet.';
+      no2.textContent = 'No ' + (ui.cat === 'HS' ? 'high school' : ui.cat) + ' players saved yet.';
       list.appendChild(no2);
     }
     schools.forEach(function(sc){
@@ -2190,7 +2199,7 @@ function renderPlayersInner(){
   var cat = ui.cat, sc = ui.school;
   var players = (r[cat] || {})[sc] || [];
   if(!players.length){ ui.school = null; renderPlayers(); return; }
-  list.appendChild(backLink((cat === 'HS' ? 'High School' : 'NCAA') + ' schools', function(){
+  list.appendChild(backLink(catLabel(cat, true) + ' schools', function(){
     ui.school = null;
     renderPlayers();
   }));
@@ -2788,7 +2797,7 @@ function buildCardDOM(cat, sc, p){
   });
   card.appendChild(bioG);
 
-  if(cat === 'NCAA'){
+  if(cat === 'NCAA' || cat === 'NJCAA'){
     var deG = document.createElement('div');
     deG.className = 'bioGrid';
     /* class */
@@ -3620,7 +3629,7 @@ function buildCardDOM(cat, sc, p){
     mvCat.className = 'h1stAdd';
     mvCat.textContent = mCat;
     mvCat.addEventListener('click', function(){
-      mCat = (mCat === 'HS') ? 'NCAA' : 'HS';
+      mCat = CATS[(CATS.indexOf(mCat) + 1) % CATS.length];
       mvCat.textContent = mCat;
     });
     var mvGo = document.createElement('button');
@@ -4427,9 +4436,11 @@ function setCpCat(c){
   cpCat = c;
   $('cpHS').classList.toggle('sel', c === 'HS');
   $('cpNCAA').classList.toggle('sel', c === 'NCAA');
+  $('cpNJCAA').classList.toggle('sel', c === 'NJCAA');
 }
 $('cpHS').addEventListener('click', function(){ setCpCat('HS'); });
 $('cpNCAA').addEventListener('click', function(){ setCpCat('NCAA'); });
+$('cpNJCAA').addEventListener('click', function(){ setCpCat('NJCAA'); });
 
 $('cpSaveBtn').addEventListener('click', function(){
   var ln = $('cpLast').value.trim(), fn = $('cpFirst').value.trim(), ps = $('cpPos').value.trim(), sc = $('cpSchool').value.trim();
